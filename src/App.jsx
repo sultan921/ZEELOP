@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import "./App.css";
 
 import Earn from "./Earn";
-import Wallet from "./wallet";
-import Profile from "./profile";
+import Wallet from "./Wallet";
+import Profile from "./Profile";
 import LuckyDraw from "./LuckyDraw";
 import Winner from "./Winner";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
