@@ -483,7 +483,7 @@ function MainApp() {
       <footer>
         <div className="footer-brand"><strong>ZEELOP</strong></div>
         <p>{t.footerSub}</p>
-        <small>{t.rights}</small>
+        <small>© 2026 ZEELOP. Official App Version</small>
       </footer>
     </div>
   );
