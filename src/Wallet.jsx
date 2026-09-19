@@ -60,7 +60,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       id: "DEP-" + Date.now().toString().slice(-6),
       type: "Deposit",
       amount: amountNum,
-      coinsCalculated: amountNum * 10,
+      coinsCalculated: amountNum * 10, // 1 PKR = 10 Coins ratio
       method: depositMethod,
       senderNumber: depositSenderNumber,
       trxId: depositTrxId,
@@ -235,7 +235,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
           </button>
         </div>
 
-        {/* TOP BUTTONS BAR - FIX Grid width & wrap issues */}
+        {/* TOP BUTTONS BAR */}
         <div
           style={{
             display: "grid",
@@ -323,12 +323,12 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
         </div>
       )}
 
-      {/* DEPOSIT TAB */}
+      {/* DEPOSIT TAB WITH YOUR OFFICIAL ACCOUNTS */}
       {activeTab === "deposit" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
-          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>💳 Official EasyPaisa Deposit</h3>
+          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>💳 Official Deposit Accounts</h3>
           <p style={{ color: "#94a3b8", fontSize: "13px" }}>
-            Payment transfer karne ke baad niche details submit karein:
+            Nechay diye gaye official accounts par payment transfer karne ke baad apni details submit karein:
           </p>
           
           <div
@@ -337,28 +337,30 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
               padding: "16px",
               borderRadius: "8px",
               margin: "15px 0",
-              border: "1px dashed #0284c7",
+              border: "1px solid #0284c7",
+              display: "grid",
+              gap: "8px"
             }}
           >
-            <p style={{ margin: "4px 0", fontSize: "14px", color: "#fff" }}>
-              <b>Account Number:</b> <span style={{ color: "#22c55e", fontWeight: "bold" }}>03XXXXXXXXX</span>
+            <p style={{ margin: 0, fontSize: "14px", color: "#fff" }}>
+              🔹 <b>EasyPaisa / JazzCash Number:</b> <span style={{ color: "#38bdf8", fontWeight: "bold" }}>03333997682</span>
             </p>
-            <p style={{ margin: "4px 0", fontSize: "14px", color: "#fff" }}>
-              <b>Account Title:</b> <span style={{ color: "#22c55e", fontWeight: "bold" }}>Official Admin</span>
+            <p style={{ margin: 0, fontSize: "14px", color: "#fff" }}>
+              🔹 <b>Meezan Bank Account:</b> <span style={{ color: "#38bdf8", fontWeight: "bold" }}>00300116199005</span>
             </p>
           </div>
 
           <form onSubmit={handleDepositSubmit} style={{ display: "grid", gap: "12px" }}>
             <div>
-              <label style={{ fontSize: "12px", color: "#94a3b8" }}>Payment Method</label>
+              <label style={{ fontSize: "12px", color: "#94a3b8" }}>Payment Method Used</label>
               <select
                 value={depositMethod}
                 onChange={(e) => setDepositMethod(e.target.value)}
                 style={{ width: "100%", padding: "10px", borderRadius: "6px", background: "#0f172a", color: "#fff", border: "1px solid #334155", marginTop: "4px" }}
               >
-                <option value="EasyPaisa">EasyPaisa</option>
-                <option value="JazzCash">JazzCash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="EasyPaisa">EasyPaisa (03333997682)</option>
+                <option value="JazzCash">JazzCash (03333997682)</option>
+                <option value="Meezan Bank">Meezan Bank (00300116199005)</option>
               </select>
             </div>
 
@@ -385,7 +387,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
             </div>
 
             <div>
-              <label style={{ fontSize: "12px", color: "#94a3b8" }}>Transaction TRX ID</label>
+              <label style={{ fontSize: "12px", color: "#94a3b8" }}>Transaction TRX ID / Receipt Number</label>
               <input
                 type="text"
                 placeholder="e.g. 98402849201"

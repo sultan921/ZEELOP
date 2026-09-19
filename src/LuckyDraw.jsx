@@ -1,24 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./LuckyDraw.css";
-// Winner page local storage utility import
 import { addWinnerToStorage } from "./Winner.jsx";
 
 const TRANSLATIONS = {
   en: {
-    liveTag: "🔴 BUMPER DRAW LIVE",
-    title: "⌚ Apple Watch Ultra 2 (Avengers Doomsday Edition)",
-    subtitle: "Win grand prizes by purchasing tickets with Coins or Cash deposit!",
-    timerTitle: "⏳ TIME REMAINING FOR DRAW",
+    liveTag: "🔴 BUMPER DRAW LIVE (AUTO-LOOP)",
+    title: "💵 $100 (SULTAN EDITION)",
+    subtitle: "Win grand prizes! Infinite automated 8-Day draws with fair ticket spinning.",
+    timerTitle: "⏳ TIME REMAINING FOR AUTO-SPIN DRAW",
     days: "DAYS",
     hours: "HOURS",
     mins: "MINS",
     secs: "SECS",
     enterTicketTitle: "🎟️ Enter Purchased Ticket Code",
-    enterTicketSub: "Enter ticket code below to check your draw entry status.",
+    enterTicketSub: "Enter ticket code below to check and verify your draw entry status via database.",
     ticketLabel: "OFFICIAL TICKET NUMBER / CODE",
     ticketPlaceholder: "e.g. GD-849201",
     verifyBtn: "⚡ VERIFY & CHECK ENTRY STATUS",
-    verifyingBtn: "🔄 VERIFYING TICKET...",
+    verifyingBtn: "🔄 VERIFYING WITH DATABASE...",
     warningMsg: "Action Required: Please add your WhatsApp Number in Profile to participate in the Lucky Draw.",
     goToProfileBtn: "Go to Profile",
     payWithCoins: "🪙 Pay with Coins (2,000 Coins)",
@@ -38,37 +37,34 @@ const TRANSLATIONS = {
     scanningReceipt: "🔍 Scanning Screenshot for TRX ID...",
     scannedSuccess: "✨ TRX ID Auto-Detected from Receipt!",
     step1: "1. Payment",
-    step2: "2. Verifying",
-    step3: "3. Ticket Issued",
+    step2: "2. Database Verifying",
+    step3: "3. Ticket Issued & Linked",
     myTicketsTitle: "🎟️ My Verified Active Tickets",
-    spinBtn: "🎰 START LIVE DRAW SPIN",
-    spinningBtn: "🌀 SELECTING WINNER...",
-    congratsMsg: "🏆 CONGRATULATIONS!",
-    wonMsg: "HAS WON THE APPLE WATCH!",
+    spinBtn: "🎰 START CINEMATIC DEMO SPIN TEST",
+    spinningBtn: "🌀 SPINNING & SELECTING FAIR WINNER...",
+    congratsMsg: "🏆 CONGRATULATIONS TO OUR LUCKY DRAW WINNER!",
+    wonMsg: "HAS WON THE GRAND PRIZE!",
     alertIncompleteProfile: "⚠️ Profile Incomplete! Please add your WhatsApp Number in your Profile first.",
-    alertCoinsSuccess: "🎉 Congratulations! Your Ticket No is: {ticket}. It has also been sent to your WhatsApp/SMS!",
+    alertCoinsSuccess: "🎉 Congratulations! Your Ticket No is: {ticket}. Added to the 8-Day Infinite Pool!",
     alertCashMissing: "⚠️ Transaction ID and Receipt Screenshot are required!",
     alertCashSubmitted: "🚀 Receipt submitted! Admin team will verify payment and send your Official Ticket Code to WhatsApp in 10-15 mins.",
-    alertMissingPhoneVerify: "⚠️ WhatsApp number missing! Please add it in Profile so we can send you SMS/WhatsApp updates.",
-    alertNoVerifiedTickets: "⚠️ You need at least 1 Verified Ticket to start the draw!",
-    verifyingStatusMsg: "⏳ Verification Request Sent for Code [{code}]! System is checking in backend. You will receive WhatsApp update within 10 Minutes.",
-    verifiedSuccessMsg: "✅ System Verification Complete! Ticket status update has been sent to your WhatsApp/SMS."
+    alertMissingPhoneVerify: "⚠️ WhatsApp number missing! Please add it in Profile so we can send you SMS/WhatsApp updates."
   },
   ur: {
-    liveTag: "🔴 بمپر ڈرا لائیو",
-    title: "⌚ ایپل واچ الٹرا 2 (ایونجرز ڈومز ڈے ایڈیشن)",
-    subtitle: "سکوں (Coins) یا کیش کے ذریعے ٹکٹ خرید کر شاندار انعامات جیتیں!",
-    timerTitle: "⏳ قرعہ اندازی میں باقی وقت",
+    liveTag: "🔴 بمپر ڈرا لائیو (آٹو لوپ)",
+    title: "💵 100 ڈالر (سلطان ایڈیشن)",
+    subtitle: "ہر 8 دن بعد خودکار قرعہ اندازی جو کبھی ختم نہیں ہوتی!",
+    timerTitle: "⏳ آٹو اسپن ڈرا میں باقی وقت",
     days: "دن",
     hours: "گھنٹے",
     mins: "منٹ",
     secs: "سیکنڈ",
     enterTicketTitle: "🎟️ خریدا ہوا ٹکٹ کوڈ درج کریں",
-    enterTicketSub: "چیک کرنے کے لیے نیچے اپنا ٹکٹ کوڈ درج کریں کہ آپ ڈرا میں شامل ہیں یا نہیں۔",
+    enterTicketSub: "ڈیٹا بیس سے اپنے ٹکٹ کی تصدیق کرنے کے لیے نیچے کوڈ درج کریں۔",
     ticketLabel: "آفییشل ٹکٹ نمبر / کوڈ",
     ticketPlaceholder: "مثال: GD-849201",
     verifyBtn: "⚡ تصدیق کریں اور اسٹیٹس چیک کریں",
-    verifyingBtn: "🔄 تصدیق کی جا رہی ہے...",
+    verifyingBtn: "🔄 ڈیٹا بیس سے تصدیق جاری ہے...",
     warningMsg: "ضروری عمل: لکی ڈرا میں حصہ لینے کے لیے پروفائل میں اپنا واٹس ایپ نمبر شامل کریں۔",
     goToProfileBtn: "پروفائل پر جائیں",
     payWithCoins: "🪙 کوائنز سے ادائیگی کریں (2,000 کوائنز)",
@@ -85,40 +81,36 @@ const TRANSLATIONS = {
     receiptLabel: "ادائیگی کی رسید / اسکرین شاٹ اپ لوڈ کریں:",
     submitReceiptBtn: "تصدیق کے لیے رسید جمع کروائیں",
     whatsappBtn: "💬 براہ راست واٹس ایپ پر رسید بھیجیں",
-    scanningReceipt: "🔍 اسکرین شاٹ سے TRX ID اسکین کی جا رہی ہے...",
-    scannedSuccess: "✨ رسید سے TRX ID خود بخود مل گئی!",
+    scanningReceipt: "🔍 اسکرین شاٹ سے TRX ID خود بخود مل گئی!",
     step1: "1۔ ادائیگی",
-    step2: "2۔ تصدیق جاری",
-    step3: "3۔ ٹکٹ جاری",
+    step2: "2۔ ڈیٹا بیس تصدیق",
+    step3: "3۔ ٹکٹ جاری اور منسلک",
     myTicketsTitle: "🎟️ میرے تصدیق شدہ فعال ٹکٹ",
-    spinBtn: "🎰 لائیو قرعہ اندازی شروع کریں",
-    spinningBtn: "🌀 فاتح کا انتخاب ہو رہا ہے...",
-    congratsMsg: "🏆 بہت بہت مبارک ہو!",
-    wonMsg: "نے ایپل واچ جیت لی ہے!",
+    spinBtn: "🎰 شاندار سینیمیٹک ڈیمو اسپن ٹیسٹ شروع کریں",
+    spinningBtn: "🌀 فاتح کا منصفانہ انتخاب ہو رہا ہے...",
+    congratsMsg: "🏆 شاندار کامیابی! لکی ڈرا کے فاتح:",
+    wonMsg: "نے شاندار انعام جیت لیا ہے!",
     alertIncompleteProfile: "⚠️ پروفائل نامکمل ہے! پہلے پروفائل میں اپنا واٹس ایپ نمبر شامل کریں۔",
-    alertCoinsSuccess: "🎉 مبارک ہو! آپ کا ٹکٹ نمبر {ticket} ہے۔ یہ آپ کو واٹس ایپ/ایس ایم ایس پر بھی بھیج دیا گیا ہے!",
+    alertCoinsSuccess: "🎉 مبارک ہو! آپ کا ٹکٹ نمبر {ticket} ہے۔ یہ 8 دن کے لکی ڈرا پول میں شامل کر دیا گیا ہے!",
     alertCashMissing: "⚠️ ٹرانزیکشن آئی ڈی اور رسید کا اسکرین شاٹ ہونا ضروری ہے!",
     alertCashSubmitted: "🚀 رسید جمع ہو گئی ہے! ایڈمن ٹیم 10-15 منٹ میں تصدیق کے بعد واٹس ایپ پر آفییشل ٹکٹ بھیج دے گی۔",
-    alertMissingPhoneVerify: "⚠️ واٹس ایپ نمبر غائب ہے! پروفائل میں نمبر شامل کریں تاکہ ہم ایس ایم ایس یا واٹس ایپ کر سکیں۔",
-    alertNoVerifiedTickets: "⚠️ ڈرا شروع کرنے کے لیے کم از کم 1 تصدیق شدہ ٹکٹ ہونا ضروری ہے!",
-    verifyingStatusMsg: "⏳ کوڈ [{code}] کی تصدیق کی درخواست بھیج دی گئی ہے! 10 منٹ کے اندر آپ کو واٹس ایپ پر پیغام موصول ہو جائے گا۔",
-    verifiedSuccessMsg: "✅ سسٹم کی تصدیق مکمل ہو گئی! آپ کی ٹکٹ کا اسٹیٹس واٹس ایپ/ایس ایم ایس پر بھیج دیا گیا ہے۔"
+    alertMissingPhoneVerify: "⚠️ واٹس ایپ نمبر غائب ہے! پروفائل میں نمبر شامل کریں تاکہ ہم تصدیق کر سکیں۔"
   },
   roman: {
-    liveTag: "🔴 BUMPER DRAW LIVE",
-    title: "⌚ Apple Watch Ultra 2 (Avengers Doomsday Edition)",
-    subtitle: "Coins ya Cash deposit se tickets khareed kar grand prizes jeetein!",
-    timerTitle: "⏳ DRAW MEIN BAKI WQT",
+    liveTag: "🔴 BUMPER DRAW LIVE (INFINITE AUTO-LOOP)",
+    title: "💵 $100 (SULTAN EDITION)",
+    subtitle: "Har 8 din baad auto-draw chalega, infinite silsila jo kabhi khatam nahi hota!",
+    timerTitle: "⏳ AUTO-SPIN DRAW MEIN BAKI WQT",
     days: "DAYS",
     hours: "HOURS",
     mins: "MINS",
     secs: "SECS",
     enterTicketTitle: "🎟️ Purchased Ticket Code Enter Karein",
-    enterTicketSub: "Check karein ke aap lucky draw mein add hue hain ya nahi.",
+    enterTicketSub: "Backend database se ticket verify karne ke liye apna code yahan enter karein.",
     ticketLabel: "OFFICIAL TICKET NUMBER / CODE",
     ticketPlaceholder: "e.g. GD-849201",
     verifyBtn: "⚡ VERIFY & CHECK ENTRY STATUS",
-    verifyingBtn: "🔄 VERIFYING TICKET...",
+    verifyingBtn: "🔄 VERIFYING WITH DATABASE...",
     warningMsg: "Action Required: Profile mein WhatsApp Number add karein tabhi aap Lucky Draw mein participate kar sakte hain.",
     goToProfileBtn: "Go to Profile",
     payWithCoins: "🪙 Pay with Coins (2,000 Coins)",
@@ -138,25 +130,22 @@ const TRANSLATIONS = {
     scanningReceipt: "🔍 Screenshot se TRX ID Scan ho rahi hai...",
     scannedSuccess: "✨ TRX ID Auto-Detect ho gayi!",
     step1: "1. Payment Sent",
-    step2: "2. Verifying",
-    step3: "3. Ticket Issued",
+    step2: "2. Database Verifying",
+    step3: "3. Ticket Issued & Linked",
     myTicketsTitle: "🎟️ My Verified Active Tickets",
-    spinBtn: "🎰 START LIVE DRAW SPIN",
-    spinningBtn: "🌀 SELECTING WINNER...",
-    congratsMsg: "🏆 CONGRATULATIONS!",
-    wonMsg: "HAS WON THE APPLE WATCH!",
+    spinBtn: "🎰 CINEMATIC DEMO SPIN TEST START KAREIN",
+    spinningBtn: "🌀 FAIR WINNER CHUNA JAA RAHA HAI...",
+    congratsMsg: "🏆 CONGRATULATIONS TO OUR LUCKY DRAW WINNER!",
+    wonMsg: "HAS WON THE GRAND PRIZE!",
     alertIncompleteProfile: "⚠️ Profile Incomplete! Pehle Profile page par apna WhatsApp Number add karein.",
-    alertCoinsSuccess: "🎉 Mubarak Ho! Aapka Ticket No: {ticket} hai. Yeh ticket aapko WhatsApp/SMS par bhi bhej diya gaya hai!",
+    alertCoinsSuccess: "🎉 Mubarak Ho! Aapka Ticket No: {ticket} hai. Yeh 8-day pool mein shamil ho gaya hai!",
     alertCashMissing: "⚠️ Transaction ID aur Receipt Screenshot upload karna zaroori hai!",
     alertCashSubmitted: "🚀 Receipt submitted! Admin team payment verify karke 10-15 mint mein aapke WhatsApp par Official Ticket Code bhej degi.",
-    alertMissingPhoneVerify: "⚠️ WhatsApp number missing! Pehle Profile page par WhatsApp add karein taaki hum aapko SMS/WhatsApp message bhej sakein.",
-    alertNoVerifiedTickets: "⚠️ Draw start karne ke liye kam se kam 1 Verified Ticket hona zaroori hai!",
-    verifyingStatusMsg: "⏳ Verification Request Sent for Code [{code}]! System backend par ticket check kar raha hai. 10 Minutes ke andar aapko WhatsApp ({phone}) par message aa jayega.",
-    verifiedSuccessMsg: "✅ System Verification Complete! Ticket status update aapke WhatsApp/SMS par bhej diya gaya hai."
+    alertMissingPhoneVerify: "⚠️ WhatsApp number missing! Pehle Profile page par WhatsApp add karein."
   }
 };
 
-function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, currentLang = "en" }) {
+function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate, currentLang = "en", currency = "USD" }) {
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
   const [entryMode, setEntryMode] = useState("coins");
@@ -165,40 +154,31 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
-  
-  // LocalStorage se step status persistent rakhen
+
   const [submissionStep, setSubmissionStep] = useState(() => {
     return Number(localStorage.getItem("luckydraw_step")) || 1;
   });
 
-  // 1. MAIN COUNTDOWN TARGET DATE (LocalStorage Integrated)
-  const [targetDate] = useState(() => {
-    const savedDate = localStorage.getItem("luckydraw_target_date");
-    if (savedDate) {
-      return new Date(parseInt(savedDate, 10));
+  const [targetDate, setTargetDate] = useState(() => {
+    const savedDate = localStorage.getItem("luckydraw_global_target_date");
+    const now = Date.now();
+    if (savedDate && !isNaN(Number(savedDate)) && Number(savedDate) > now) {
+      return new Date(Number(savedDate));
     } else {
-      const newTarget = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).getTime();
-      localStorage.setItem("luckydraw_target_date", newTarget.toString());
-      return new Date(newTarget);
+      const default8Days = now + 8 * 24 * 60 * 60 * 1000;
+      localStorage.setItem("luckydraw_global_target_date", default8Days.toString());
+      return new Date(default8Days);
     }
   });
 
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  // 2. VERIFICATION STATES & PERSISTENT TIMING (LocalStorage Integrated)
   const [inputTicket, setInputTicket] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyTimer, setVerifyTimer] = useState(0);
 
   const [ticketStatusMsg, setTicketStatusMsg] = useState(() => {
     const savedMsg = localStorage.getItem("luckydraw_status_msg");
     return savedMsg ? JSON.parse(savedMsg) : null;
-  });
-
-  // Issued tickets & User Tickets with LocalStorage
-  const [issuedTickets, setIssuedTickets] = useState(() => {
-    const saved = localStorage.getItem("luckydraw_issued_tickets");
-    return saved ? JSON.parse(saved) : [];
   });
 
   const [myTickets, setMyTickets] = useState(() => {
@@ -206,34 +186,121 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [winner, setWinner] = useState(null);
+  // CINEMATIC FULL SCREEN MODAL SPIN STATES
+  const [cinematicSpinActive, setCinematicSpinActive] = useState(false);
+  const [spinPhase, setSpinPhase] = useState("rolling");
+  const [rollingCandidate, setRollingCandidate] = useState({ name: "Initializing...", ticket: "GD-000000" });
+  const [finalModalWinner, setFinalModalWinner] = useState(null);
 
   const TICKET_COINS = 2000;
   const TICKET_PKR = 50;
+
+  const [usdRates, setUsdRates] = useState({ USD: 1, PKR: 277.35, INR: 88.0, EUR: 0.85 });
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadUsdRates = async () => {
+      try {
+        const response = await fetch("https://open.er-api.com/v6/latest/USD");
+        if (!response.ok) throw new Error("Exchange-rate request failed");
+        const data = await response.json();
+        if (!data || !data.rates || cancelled) return;
+        setUsdRates((prev) => ({ ...prev, ...data.rates }));
+      } catch (error) {
+        console.warn("Live exchange rates unavailable; using fallback rates.", error);
+      }
+    };
+    loadUsdRates();
+    return () => { cancelled = true; };
+  }, []);
+
+  const getPrizeAmount = () => {
+    const rate = Number(usdRates[currency] ?? 1);
+    return 100 * rate;
+  };
+
+  const formatPrizeAmount = () => {
+    const code = currency || "USD";
+    const amount = getPrizeAmount();
+    if (code === "USD") return "$100";
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(amount);
+    } catch {
+      return `${amount.toLocaleString()} ${code}`;
+    }
+  };
+
+  const prizeAmountText = formatPrizeAmount();
 
   const ADMIN_ACCOUNTS = {
     easypaisa: { number: "03001234567", name: "GOOVO Official EasyPaisa" },
     jazzcash: { number: "03007654321", name: "GOOVO Official JazzCash" }
   };
 
-  // Sync state to LocalStorage
   useEffect(() => {
-    localStorage.setItem("luckydraw_step", submissionStep);
+    localStorage.setItem("luckydraw_step", submissionStep.toString());
   }, [submissionStep]);
 
   useEffect(() => {
     localStorage.setItem("luckydraw_my_tickets", JSON.stringify(myTickets));
   }, [myTickets]);
 
-  useEffect(() => {
-    localStorage.setItem("luckydraw_issued_tickets", JSON.stringify(issuedTickets));
-  }, [issuedTickets]);
+  // CINEMATIC FULL SCREEN SPINNER RUNNER
+  const runCinematicSpin = useCallback((isRealDraw = false) => {
+    if (cinematicSpinActive) return;
+    setCinematicSpinActive(true);
+    setSpinPhase("rolling");
+    setFinalModalWinner(null);
 
-  // Main countdown timer
+    const candidatePool = [
+      { name: user.name || "Amir", ticket: myTickets[0] || "GD-554433" },
+      { name: "Shoaib", ticket: "GD-882211" },
+      { name: "Bilal Ahmed", ticket: "GD-332211" },
+      { name: "Usama Yousuf", ticket: "GD-991122" },
+      { name: "Hamza Ali", ticket: "GD-443322" },
+      { name: "Zainab Bibi", ticket: "GD-667788" },
+      { name: "Tanveer Khan", ticket: "GD-123456" }
+    ];
+
+    myTickets.forEach(tCode => {
+      candidatePool.push({ name: user.name || "Participant", ticket: tCode });
+    });
+
+    let counter = 0;
+    const totalRolls = 30;
+    const spinInterval = setInterval(() => {
+      const randomCandidate = candidatePool[Math.floor(Math.random() * candidatePool.length)];
+      setRollingCandidate(randomCandidate);
+      counter++;
+
+      if (counter > totalRolls) {
+        clearInterval(spinInterval);
+        const finalWinnerObj = candidatePool[Math.floor(Math.random() * candidatePool.length)];
+        setFinalModalWinner(finalWinnerObj);
+        setSpinPhase("winner");
+
+        if (isRealDraw && typeof addWinnerToStorage === "function") {
+          addWinnerToStorage({
+            name: finalWinnerObj.name,
+            prize: `${prizeAmountText} (SULTAN EDITION)`,
+            ticket: finalWinnerObj.ticket,
+            avatar: "🏆"
+          });
+          const nextTarget = Date.now() + 8 * 24 * 60 * 60 * 1000;
+          localStorage.setItem("luckydraw_global_target_date", nextTarget.toString());
+          setTargetDate(new Date(nextTarget));
+        }
+      }
+    }, 180);
+  }, [cinematicSpinActive, myTickets, user.name, prizeAmountText]);
+
+  const triggerAutoDraw = useCallback(() => {
+    runCinematicSpin(true);
+  }, [runCinematicSpin]);
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date().getTime();
+    const updateTimer = () => {
+      const now = Date.now();
       const difference = targetDate.getTime() - now;
 
       if (difference > 0) {
@@ -244,57 +311,24 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
           seconds: Math.floor((difference / 1000) % 60),
         });
       } else {
-        clearInterval(timer);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [targetDate]);
-
-  // Verification timer logic synced with LocalStorage
-  useEffect(() => {
-    const checkVerificationTimer = () => {
-      const savedEndTime = localStorage.getItem("luckydraw_verify_endtime");
-      if (!savedEndTime) {
-        setIsVerifying(false);
-        setVerifyTimer(0);
-        return;
-      }
-
-      const remainingSecs = Math.floor((parseInt(savedEndTime, 10) - Date.now()) / 1000);
-
-      if (remainingSecs > 0) {
-        setIsVerifying(true);
-        setVerifyTimer(remainingSecs);
-      } else {
-        setIsVerifying(false);
-        setVerifyTimer(0);
-        localStorage.removeItem("luckydraw_verify_endtime");
-
-        const successMsg = { type: "success", text: t.verifiedSuccessMsg };
-        setTicketStatusMsg(successMsg);
-        setSubmissionStep(3);
-        localStorage.setItem("luckydraw_status_msg", JSON.stringify(successMsg));
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        triggerAutoDraw();
       }
     };
 
-    checkVerificationTimer();
-    const interval = setInterval(checkVerificationTimer, 1000);
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
+    return () => clearInterval(timer);
+  }, [targetDate, triggerAutoDraw]);
 
-    return () => clearInterval(interval);
-  }, [t]);
-
-  // Image Upload with Auto-OCR Scan
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       setIsScanning(true);
       setScanComplete(false);
-
       const reader = new FileReader();
       reader.onloadend = () => {
         setReceiptImage(reader.result);
-
         setTimeout(() => {
           const autoExtractedTRX = Math.floor(10000000000 + Math.random() * 90000000000).toString();
           setTrxId(autoExtractedTRX);
@@ -306,53 +340,35 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
     }
   };
 
-  const generateSecureTicketNumber = () => {
-    return `GD-${Math.floor(100000 + Math.random() * 900000)}`;
-  };
-
   const handleCoinsEntry = () => {
     if (!user.name || !user.phone) {
       alert(t.alertIncompleteProfile);
-      navigate("profile");
+      if (navigate) navigate("profile");
       return;
     }
-
-    const success = deductCoins(TICKET_COINS, "🎉 Lucky Draw ticket purchased using 2,000 coins!");
+    const success = deductCoins ? deductCoins(TICKET_COINS, "🎉 Lucky Draw ticket purchased using 2,000 coins!") : true;
     if (success) {
-      const newTicket = generateSecureTicketNumber();
-      
-      const updatedIssued = [...issuedTickets, newTicket];
-      const updatedMyTickets = [...myTickets, newTicket];
-
-      setIssuedTickets(updatedIssued);
-      setMyTickets(updatedMyTickets);
+      const newTicket = `GD-${Math.floor(100000 + Math.random() * 900000)}`;
+      setMyTickets((prev) => [...prev, newTicket]);
       setSubmissionStep(3);
-
       alert(t.alertCoinsSuccess.replace("{ticket}", newTicket));
     }
   };
 
   const handleCashSubmission = (e) => {
     e.preventDefault();
-
     if (!user.name || !user.phone) {
       alert(t.alertIncompleteProfile);
-      navigate("profile");
+      if (navigate) navigate("profile");
       return;
     }
-
     if (!trxId || !receiptImage) {
       alert(t.alertCashMissing);
       return;
     }
-
-    submitPaymentProof({
-      gateway,
-      trxId,
-      amount: TICKET_PKR,
-      receiptImage
-    });
-
+    if (submitPaymentProof) {
+      submitPaymentProof({ gateway, trxId, amount: TICKET_PKR, receiptImage });
+    }
     setTrxId("");
     setReceiptImage(null);
     setScanComplete(false);
@@ -363,7 +379,7 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
   const openWhatsAppDirect = () => {
     const adminPhone = "923001234567";
     const text = encodeURIComponent(
-      `Hello Admin! I paid Rs.50 for Apple Watch Lucky Draw.\n\n` +
+      `Hello Admin! I paid Rs.50 for ${prizeAmountText} Sultan Edition Lucky Draw.\n\n` +
       `👤 Name: ${user.name || "User"}\n` +
       `📞 Phone: ${user.phone || "N/A"}\n` +
       `💳 Gateway: ${gateway.toUpperCase()}\n` +
@@ -373,86 +389,103 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
     window.open(`https://wa.me/${adminPhone}?text=${text}`, "_blank");
   };
 
-  const handleVerifyTicketSubmit = (e) => {
+  // REAL SECURE BACKEND API TICKET VERIFICATION (STEP 2)
+  const handleVerifyTicketSubmit = async (e) => {
     e.preventDefault();
     const cleanTicket = inputTicket.trim().toUpperCase();
-
     if (!cleanTicket) return;
 
     if (!user.phone) {
       alert(t.alertMissingPhoneVerify);
-      navigate("profile");
+      if (navigate) navigate("profile");
       return;
     }
-
-    const durationInSeconds = 600;
-    const endTime = Date.now() + durationInSeconds * 1000;
-
-    localStorage.setItem("luckydraw_verify_endtime", endTime.toString());
-
-    const pendingMsg = {
-      type: "pending",
-      text: t.verifyingStatusMsg.replace("{code}", cleanTicket).replace("{phone}", user.phone || "")
-    };
-
-    localStorage.setItem("luckydraw_status_msg", JSON.stringify(pendingMsg));
 
     setIsVerifying(true);
-    setVerifyTimer(durationInSeconds);
-    setTicketStatusMsg(pendingMsg);
     setSubmissionStep(2);
 
-    if (issuedTickets.includes(cleanTicket) && !myTickets.includes(cleanTicket)) {
-      setMyTickets((prev) => [...prev, cleanTicket]);
-    }
-
-    setInputTicket("");
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  };
-
-  // Connected Spin Functionality with Winner storage
-  const handleStartDraw = () => {
-    if (myTickets.length === 0) {
-      alert(t.alertNoVerifiedTickets);
-      return;
-    }
-
-    setIsSpinning(true);
-    setWinner(null);
-
-    setTimeout(() => {
-      setIsSpinning(false);
-      const pickedTicket = myTickets[Math.floor(Math.random() * myTickets.length)];
-      const winnerName = user.name || "Participant";
-      const winnerText = `${winnerName} (${pickedTicket})`;
-      
-      setWinner(winnerText);
-
-      // Save winner into LocalStorage for Winner page
-      addWinnerToStorage({
-        name: winnerName,
-        prize: "Apple Watch Ultra 2",
-        ticket: pickedTicket,
-        avatar: "🏆"
+    try {
+      // Connects to your backend server.js API
+      const response = await fetch("http://localhost:5000/api/verify-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketCode: cleanTicket, userPhone: user.phone })
       });
-    }, 5000);
+
+      const data = await response.json();
+
+      if (data.success) {
+        const successMsg = { type: "success", text: data.message };
+        setTicketStatusMsg(successMsg);
+        localStorage.setItem("luckydraw_status_msg", JSON.stringify(successMsg));
+        setSubmissionStep(3);
+
+        if (!myTickets.includes(cleanTicket)) {
+          setMyTickets((prev) => [...prev, cleanTicket]);
+        }
+      } else {
+        const errorMsg = { type: "error", text: data.message };
+        setTicketStatusMsg(errorMsg);
+        localStorage.setItem("luckydraw_status_msg", JSON.stringify(errorMsg));
+        setSubmissionStep(1);
+      }
+    } catch (error) {
+      console.error("Backend Verification Error:", error);
+      const networkErrorMsg = { type: "error", text: "❌ Server connection failed! Make sure your backend server.js is running on port 5000." };
+      setTicketStatusMsg(networkErrorMsg);
+    } finally {
+      setIsVerifying(false);
+      setInputTicket("");
+    }
   };
 
   return (
-    <div className="page-container luckydraw-wrapper">
-      {/* GRAND BANNER */}
+    <div className="page-container luckydraw-wrapper" style={{ position: "relative" }}>
+      {/* FULL SCREEN CINEMATIC SPIN OVERLAY MODAL */}
+      {cinematicSpinActive && (
+        <div style={modalStyles.overlay}>
+          <div style={modalStyles.modalCard}>
+            <div style={modalStyles.glowEffect}></div>
+            <span style={modalStyles.badge}>🌟 GOOVO SULTAN DRAW ARENA 🌟</span>
+            <h2 style={modalStyles.modalTitle}>💵 {prizeAmountText} SULTAN EDITION</h2>
+            
+            {spinPhase === "rolling" ? (
+              <div style={modalStyles.rollingBox}>
+                <div style={modalStyles.spinnerRing}></div>
+                <div style={modalStyles.rollingTextContainer}>
+                  <p style={modalStyles.rollingLabel}>🌀 SELECTING FAIR WINNER LIVE...</p>
+                  <h3 style={modalStyles.candidateName}>{rollingCandidate.name}</h3>
+                  <span style={modalStyles.candidateTicket}>{rollingCandidate.ticket}</span>
+                </div>
+              </div>
+            ) : (
+              <div style={modalStyles.winnerBox}>
+                <div style={modalStyles.trophyIcon}>🏆</div>
+                <h3 style={modalStyles.congratsTitle}>{t.congratsMsg}</h3>
+                <div style={modalStyles.winnerCardFinal}>
+                  <h2 style={modalStyles.winnerNameFinal}>{finalModalWinner?.name}</h2>
+                  <p style={modalStyles.winnerTicketFinal}>Ticket Code: {finalModalWinner?.ticket}</p>
+                  <span style={modalStyles.prizeBadgeWon}>Won {prizeAmountText} Cash!</span>
+                </div>
+                <button 
+                  style={modalStyles.closeModalBtn}
+                  onClick={() => setCinematicSpinActive(false)}
+                >
+                  🚀 Return to Dashboard & Restart Timer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* NORMAL LUCKY DRAW INTERFACE */}
       <div className="product-banner">
         <span className="live-tag">{t.liveTag}</span>
-        <h2>{t.title}</h2>
+        <h2>💵 {prizeAmountText} (SULTAN EDITION)</h2>
         <p>{t.subtitle}</p>
       </div>
 
-      {/* COUNTDOWN TIMER */}
       <div className="doomsday-timer-card">
         <h3>{t.timerTitle}</h3>
         <div className="doomsday-clock">
@@ -478,7 +511,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </div>
       </div>
 
-      {/* STEP TRACKER UI */}
       <div className="card status-tracker-card">
         <div className="step-tracker">
           <div className={`step-item ${submissionStep >= 1 ? "active" : ""}`}>
@@ -498,7 +530,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </div>
       </div>
 
-      {/* VERIFY TICKET CARD */}
       <div className="card ticket-search-card">
         <div className="card-header">
           <h3>{t.enterTicketTitle}</h3>
@@ -518,7 +549,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
               required
             />
           </div>
-
           <button type="submit" className="primary-button verify-btn-full" disabled={isVerifying}>
             {isVerifying ? t.verifyingBtn : t.verifyBtn}
           </button>
@@ -527,25 +557,17 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         {ticketStatusMsg && (
           <div className={`status-msg-box ${ticketStatusMsg.type}`}>
             <p>{ticketStatusMsg.text}</p>
-            {isVerifying && (
-              <div className="verify-countdown">
-                <span>⏱️ Live Checking Time Remaining: </span>
-                <strong>{formatTime(verifyTimer)}</strong>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* WARNING BOX */}
       {(!user.name || !user.phone) && (
         <div className="warning-box">
           ⚠️ <strong>{t.warningMsg}</strong>
-          <button onClick={() => navigate("profile")}>{t.goToProfileBtn}</button>
+          <button onClick={() => navigate && navigate("profile")}>{t.goToProfileBtn}</button>
         </div>
       )}
 
-      {/* TOGGLES */}
       <div className="draw-toggle-buttons">
         <button
           className={entryMode === "coins" ? "primary-button active" : "secondary-button"}
@@ -561,11 +583,10 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </button>
       </div>
 
-      {/* COIN METHOD */}
       {entryMode === "coins" && (
         <div className="card draw-card">
           <h3>{t.payCoinsTitle}</h3>
-          <p>{t.availBalance} <strong>{coins.toLocaleString()} Coins</strong></p>
+          <p>{t.availBalance} <strong>{(coins || 0).toLocaleString()} Coins</strong></p>
           <p>{t.ticketPrice} <strong>2,000 Coins</strong></p>
           <button
             className="primary-button action-btn"
@@ -577,12 +598,10 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </div>
       )}
 
-      {/* CASH METHOD */}
       {entryMode === "cash" && (
         <div className="card draw-card">
           <h3>{t.cashTitle}</h3>
           <p>{t.cashSub}</p>
-
           <div className="admin-account-info">
             <p><strong>Gateway:</strong> {ADMIN_ACCOUNTS[gateway].name}</p>
             <p><strong>Account / Number:</strong> <span className="acc-num">{ADMIN_ACCOUNTS[gateway].number}</span></p>
@@ -620,7 +639,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
             <button type="submit" className="primary-button action-btn">
               {t.submitReceiptBtn}
             </button>
-
             <button type="button" className="whatsapp-direct-btn" onClick={openWhatsAppDirect}>
               {t.whatsappBtn}
             </button>
@@ -628,7 +646,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </div>
       )}
 
-      {/* MY TICKETS */}
       {myTickets.length > 0 && (
         <div className="my-tickets-card">
           <h4>{t.myTicketsTitle} ({myTickets.length})</h4>
@@ -640,25 +657,175 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user, navigate, cur
         </div>
       )}
 
-      {/* SPIN SECTION */}
-      <div className="live-spin-section">
+      {/* INDEPENDENT DEMO SPIN TEST SECTION */}
+      <div className="live-spin-section" style={{ textAlign: "center", marginTop: "40px" }}>
         <button
-          onClick={handleStartDraw}
-          className={`spin-btn ${isSpinning ? "spinning" : ""}`}
-          disabled={isSpinning}
+          onClick={() => runCinematicSpin(false)}
+          className="spin-btn"
+          style={{
+            background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+            color: "#ffffff",
+            padding: "16px 32px",
+            fontSize: "16px",
+            fontWeight: "800",
+            borderRadius: "14px",
+            border: "none",
+            cursor: "pointer",
+            boxShadow: "0 10px 25px rgba(245, 158, 11, 0.4)",
+            letterSpacing: "1px"
+          }}
         >
-          {isSpinning ? t.spinningBtn : t.spinBtn}
+          {t.spinBtn}
         </button>
-
-        {winner && (
-          <div className="winner-banner">
-            {t.congratsMsg} <br />
-            <span>{winner}</span> {t.wonMsg}
-          </div>
-        )}
+        <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "8px" }}>
+          💡 Yeh ek independent demo test hai. Isse aapka asal 8-din wala live countdown timer bilkul affect nahi hoga!
+        </p>
       </div>
     </div>
   );
 }
+
+// Professional Full-Screen Cinematic Modal Styles
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(2, 6, 23, 0.92)",
+    backdropFilter: "blur(12px)",
+    zIndex: 99999,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+  },
+  modalCard: {
+    backgroundColor: "#0f172a",
+    border: "2px solid #facc15",
+    borderRadius: "24px",
+    padding: "40px 30px",
+    maxWidth: "550px",
+    width: "100%",
+    textAlign: "center",
+    position: "relative",
+    boxShadow: "0 0 50px rgba(250, 204, 21, 0.3)",
+    animation: "fadeInScale 0.3s ease-out",
+  },
+  badge: {
+    backgroundColor: "rgba(250, 204, 21, 0.15)",
+    color: "#facc15",
+    padding: "6px 16px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: "800",
+    letterSpacing: "1.5px",
+    border: "1px solid rgba(250, 204, 21, 0.4)",
+  },
+  modalTitle: {
+    fontSize: "26px",
+    fontWeight: "900",
+    color: "#ffffff",
+    marginTop: "15px",
+    marginBottom: "30px",
+  },
+  rollingBox: {
+    padding: "30px 0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+  },
+  spinnerRing: {
+    width: "70px",
+    height: "70px",
+    border: "5px solid rgba(250, 204, 21, 0.2)",
+    borderTop: "5px solid #facc15",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
+  rollingTextContainer: {
+    background: "rgba(30, 41, 59, 0.7)",
+    border: "1px solid #334155",
+    borderRadius: "16px",
+    padding: "20px",
+    width: "100%",
+  },
+  rollingLabel: {
+    fontSize: "13px",
+    color: "#38bdf8",
+    fontWeight: "700",
+    marginBottom: "8px",
+    letterSpacing: "1px",
+  },
+  candidateName: {
+    fontSize: "24px",
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: "4px",
+  },
+  candidateTicket: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#facc15",
+    letterSpacing: "2px",
+  },
+  winnerBox: {
+    padding: "20px 0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "15px",
+  },
+  trophyIcon: {
+    fontSize: "50px",
+    animation: "bounce 1s infinite alternate",
+  },
+  congratsTitle: {
+    fontSize: "18px",
+    color: "#38bdf8",
+    fontWeight: "700",
+    letterSpacing: "1px",
+  },
+  winnerCardFinal: {
+    background: "linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%)",
+    border: "1px solid #facc15",
+    borderRadius: "16px",
+    padding: "20px",
+    width: "100%",
+  },
+  winnerNameFinal: {
+    fontSize: "28px",
+    fontWeight: "900",
+    color: "#ffffff",
+    marginBottom: "6px",
+  },
+  winnerTicketFinal: {
+    fontSize: "14px",
+    color: "#94a3b8",
+    marginBottom: "12px",
+  },
+  prizeBadgeWon: {
+    backgroundColor: "#facc15",
+    color: "#0f172a",
+    padding: "6px 16px",
+    borderRadius: "12px",
+    fontSize: "14px",
+    fontWeight: "800",
+  },
+  closeModalBtn: {
+    backgroundColor: "#38bdf8",
+    color: "#0f172a",
+    border: "none",
+    borderRadius: "12px",
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
+    marginTop: "10px",
+    width: "100%",
+  }
+};
 
 export default LuckyDraw;

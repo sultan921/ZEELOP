@@ -1,35 +1,48 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import "./App.css";
 
 import Earn from "./Earn";
 import Wallet from "./wallet";
 import Profile from "./profile";
 import LuckyDraw from "./LuckyDraw";
-import Winner from "./Winner"; // Winner Component Import
-import AdminDashboard from "./AdminDashboard";
-import AuthModal from "./AuthModal";
+import Winner from "./Winner";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
 function MainApp() {
   const { lang, setLang, currency, setCurrency, t, activeCurrency, convertCoins } = useLanguage();
-  
+  const navigate = useNavigate ? useNavigate() : null;
+
   const [page, setPage] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login
 
-  // Active User Profile State from LocalStorage
+  // Password Show/Hide Toggle State
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Form states
+  const [inputName, setInputName] = useState("");
+  const [inputPhone, setInputPhone] = useState("");
+  const [inputPassword, setInputPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authSuccess, setAuthSuccess] = useState("");
+
+  // Persistent User Session
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("goovoUser");
+    const saved = localStorage.getItem("goovoCurrentUser");
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Balance Coins
   const [coins, setCoins] = useState(() => {
-    return Number(localStorage.getItem("goovoCoins")) || 0;
+    const savedUser = localStorage.getItem("goovoCurrentUser");
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      return parsed.coins ?? Number(localStorage.getItem("goovoCoins")) ?? 1000;
+    }
+    return Number(localStorage.getItem("goovoCoins")) || 1000;
   });
 
-  // Pending Cash Transactions
   const [pendingPayments, setPendingPayments] = useState(() => {
     const saved = localStorage.getItem("goovoPendingPayments");
     return saved ? JSON.parse(saved) : [];
@@ -37,29 +50,130 @@ function MainApp() {
 
   const [message, setMessage] = useState({ text: "", type: "success" });
 
-  // Sync state changes with LocalStorage
-  useEffect(() => {
-    localStorage.setItem("goovoCoins", coins);
-  }, [coins]);
-
+  // Save session & coins
   useEffect(() => {
     if (user) {
-      localStorage.setItem("goovoUser", JSON.stringify(user));
+      localStorage.setItem("goovoCurrentUser", JSON.stringify(user));
     } else {
-      localStorage.removeItem("goovoUser");
+      localStorage.removeItem("goovoCurrentUser");
     }
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem("goovoCoins", coins);
+    if (user) {
+      setUser((prev) => (prev ? { ...prev, coins } : null));
+    }
+  }, [coins]);
 
   useEffect(() => {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
 
+  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Node.js Backend API
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+
+    if (!inputName.trim() || !inputPhone.trim() || !inputPassword.trim()) {
+      setAuthError("⚠️ Meherbani karke saari fields bharein!");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: inputName.trim(),
+          phone: inputPhone.trim(),
+          password: inputPassword.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAuthError(`⚠️ ${data.error || "Registration failed!"}`);
+        return;
+      }
+
+      setUser(data.user);
+      if (typeof data.user.coins === "number") {
+        setCoins(data.user.coins);
+      }
+
+      setAuthSuccess("✅ Account permanently database me register ho gaya!");
+      setTimeout(() => {
+        setShowAuthModal(false);
+        setAuthSuccess("");
+        setInputName("");
+        setInputPhone("");
+        setInputPassword("");
+      }, 1200);
+
+    } catch (err) {
+      setAuthError("❌ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
+    }
+  };
+
+  // 🔗 BACKEND LINKED: Login Handler via Node.js Backend API
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+
+    if (!inputPhone.trim() || !inputPassword.trim()) {
+      setAuthError("⚠️ Phone number aur password dono likhein!");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: inputPhone.trim(),
+          password: inputPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAuthError(`❌ ${data.error || "Ghalat Phone Number ya Password!"}`);
+        return;
+      }
+
+      setUser(data.user);
+      if (typeof data.user.coins === "number") {
+        setCoins(data.user.coins);
+      }
+
+      setAuthSuccess("✅ Login Successful from Database!");
+      setTimeout(() => {
+        setShowAuthModal(false);
+        setAuthSuccess("");
+        setInputPhone("");
+        setInputPassword("");
+      }, 1000);
+
+    } catch (err) {
+      setAuthError("❌ Backend server se connection nahi ho saka!");
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem("goovoCurrentUser");
+    triggerNotification("👋 Logged out successfully!", "info");
+    setPage("home");
+  };
+
   const addCoins = (amount, customMessage) => {
     setCoins((prev) => prev + amount);
-    triggerNotification(
-      customMessage || `🎉 You earned ${amount} coins!`,
-      "success"
-    );
+    triggerNotification(customMessage || `🎉 You earned ${amount} coins!`, "success");
   };
 
   const deductCoins = (amount, customMessage) => {
@@ -68,10 +182,7 @@ function MainApp() {
       return false;
     }
     setCoins((prev) => prev - amount);
-    triggerNotification(
-      customMessage || `💸 Paid ${amount} coins successfully!`,
-      "info"
-    );
+    triggerNotification(customMessage || `💸 Paid ${amount} coins successfully!`, "info");
     return true;
   };
 
@@ -82,27 +193,24 @@ function MainApp() {
     }
     const newEntry = {
       id: "TRX-" + Date.now(),
-      userName: user.name || "Guest",
+      userName: user.name || "User",
       userPhone: user.phone || "N/A",
       ...paymentData,
       status: "pending_verification",
       createdAt: new Date().toISOString()
     };
     setPendingPayments((prev) => [newEntry, ...prev]);
-    triggerNotification("🚀 Receipt submitted! Waiting for Admin verification.", "success");
+    triggerNotification("🚀 Receipt submitted successfully!", "success");
   };
 
   const triggerNotification = (text, type = "success") => {
     setMessage({ text, type });
-    setTimeout(() => {
-      setMessage({ text: "", type: "success" });
-    }, 3000);
+    setTimeout(() => setMessage({ text: "", type: "success" }), 3000);
   };
 
   const navigateToPage = (newPage) => {
-    // Guest user can view Home, Profile, and Winner pages without login
     if (!user && (newPage === "earn" || newPage === "wallet" || newPage === "luckyDraw")) {
-      triggerNotification("🔒 Login / Signup required for this feature!", "error");
+      triggerNotification("🔒 Feature access ke liye pehle Login / Signup karein!", "error");
       setShowAuthModal(true);
       return;
     }
@@ -111,43 +219,19 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem("goovoUser");
-    triggerNotification("👋 Logged out successfully!", "info");
-    setPage("home");
-  };
-
   return (
     <div className="app">
-      {/* GUEST BANNER */}
-      {!user && (
-        <div style={{ background: "#38bdf8", color: "#0f172a", padding: "8px 15px", textAlign: "center", fontSize: "13px", fontWeight: "bold" }}>
-          👋 Aap Guest Mode mein hain. Coins kamane ke liye {" "}
-          <button 
-            onClick={() => setShowAuthModal(true)} 
-            style={{ background: "#0f172a", color: "#fff", border: "none", padding: "3px 10px", borderRadius: "4px", cursor: "pointer", marginLeft: "8px" }}
-          >
-            Signup / Login
-          </button>
-        </div>
-      )}
-
-      {/* NAVBAR WITH LOGO + COMPACT LANGUAGE & CURRENCY SELECTORS */}
+      {/* NAVBAR */}
       <nav className="navbar">
         <div className="nav-left-group">
           <div className="brand" onClick={() => navigateToPage("home")}>
-            <span>GOOVO</span>
+            <span>ZEELOP</span>
           </div>
 
           <div className="header-controls">
             <div className="compact-pill">
               <span className="pill-icon">🌐</span>
-              <select
-                value={lang}
-                onChange={(e) => setLang(e.target.value)}
-                className="compact-select"
-              >
+              <select value={lang} onChange={(e) => setLang(e.target.value)} className="compact-select">
                 <option value="UR">UR</option>
                 <option value="EN">EN</option>
                 <option value="HI">HI</option>
@@ -155,11 +239,7 @@ function MainApp() {
             </div>
 
             <div className="compact-pill">
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="compact-select"
-              >
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="compact-select">
                 <option value="PKR">PKR</option>
                 <option value="INR">INR</option>
                 <option value="USD">USD</option>
@@ -176,11 +256,17 @@ function MainApp() {
           <button className={page === "winner" ? "active" : ""} onClick={() => navigateToPage("winner")}>🏆 Winners</button>
           <button className={page === "wallet" ? "active" : ""} onClick={() => navigateToPage("wallet")}>{t.wallet}</button>
           <button className={page === "profile" ? "active" : ""} onClick={() => navigateToPage("profile")}>{t.profile}</button>
-          
+
+          {/* AUTH BUTTONS IN NAVBAR */}
           {user ? (
-            <button onClick={handleLogout} style={{ background: "#ef4444", color: "#fff", borderRadius: "6px" }}>Logout</button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "12px", color: "#38bdf8", fontWeight: "bold" }}>👤 {user.name}</span>
+              <button onClick={handleLogout} style={inlineStyles.logoutBtn}>Logout</button>
+            </div>
           ) : (
-            <button onClick={() => setShowAuthModal(true)} style={{ background: "#0284c7", color: "#fff", borderRadius: "6px" }}>Login</button>
+            <button onClick={() => { setIsLoginMode(false); setShowAuthModal(true); }} style={inlineStyles.loginNavBtn}>
+              Login / Signup
+            </button>
           )}
         </div>
 
@@ -189,6 +275,7 @@ function MainApp() {
         </button>
       </nav>
 
+      {/* MOBILE MENU */}
       {menuOpen && (
         <div className="mobile-menu">
           <button onClick={() => navigateToPage("home")}>🏠 {t.home}</button>
@@ -198,21 +285,21 @@ function MainApp() {
           <button onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
           <button onClick={() => navigateToPage("profile")}>👤 {t.profile}</button>
           {user ? (
-            <button onClick={handleLogout} style={{ color: "#ef4444" }}>🚪 Logout</button>
+            <button onClick={handleLogout} style={{ color: "#ef4444" }}>🚪 Logout ({user.name})</button>
           ) : (
-            <button onClick={() => { setMenuOpen(false); setShowAuthModal(true); }}>🔑 Login / Signup</button>
+            <button onClick={() => { setMenuOpen(false); setIsLoginMode(false); setShowAuthModal(true); }} style={{ color: "#38bdf8" }}>🔑 Login / Signup</button>
           )}
         </div>
       )}
 
-      {/* Global Toast Notification */}
+      {/* TOAST */}
       {message.text && (
         <div className={`toast-notification ${message.type}`}>
           {message.text}
         </div>
       )}
 
-      {/* RENDER PAGES */}
+      {/* PAGES ROUTING */}
       {page === "home" && (
         <main>
           <section className="hero">
@@ -220,11 +307,6 @@ function MainApp() {
               <p className="small-title">{t.welcome}</p>
               <h1>{t.heroTitle1}<span>{t.heroTitle2}</span></h1>
               <p className="description">{t.heroSub}</p>
-              
-              <div className="search-box">
-                <input type="text" placeholder={t.searchPlaceholder} />
-                <button type="button">🔍</button>
-              </div>
             </div>
           </section>
 
@@ -275,6 +357,7 @@ function MainApp() {
           submitPaymentProof={submitPaymentProof}
           user={user}
           navigate={navigateToPage}
+          currency={currency}
         />
       )}
 
@@ -292,7 +375,7 @@ function MainApp() {
 
       {page === "profile" && (
         <Profile
-          user={user || { name: "Guest User", phone: "Not Logged In", isVerified: false }}
+          user={user || { name: "Guest User", phone: "Not Logged In", coins: coins }}
           setUser={setUser}
           coins={coins}
           navigate={navigateToPage}
@@ -300,37 +383,98 @@ function MainApp() {
         />
       )}
 
-      {page === "admin" && (
-        <div>
-          <div style={{ padding: "10px 20px", background: "#0f172a", borderBottom: "1px solid #334155" }}>
-            <button
-              onClick={() => navigateToPage("profile")}
-              style={{
-                background: "#334155",
-                color: "#fff",
-                border: "none",
-                padding: "8px 15px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-            >
-              ⬅️ Exit Admin Mode
-            </button>
+      {/* PROFESSIONAL SIGN UP / LOGIN MODAL WITH EYE ICON */}
+      {showAuthModal && (
+        <div style={inlineStyles.modalOverlay}>
+          <div style={inlineStyles.modalCard}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h3 style={{ margin: 0, color: "#fff", fontSize: "18px" }}>
+                {isLoginMode ? "🔑 Database Login" : "📝 Database Sign Up"}
+              </h3>
+              <button onClick={() => setShowAuthModal(false)} style={inlineStyles.closeBtn}>✕</button>
+            </div>
+
+            <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "18px", lineHeight: "1.4" }}>
+              {isLoginMode 
+                ? "Apne registered phone number aur password se MongoDB se login karein." 
+                : "Naya account direct backend database me save hoga."}
+            </p>
+
+            <form onSubmit={isLoginMode ? handleLoginSubmit : handleRegisterSubmit}>
+              {!isLoginMode && (
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={inlineStyles.label}>Aapka Naam (Name)</label>
+                  <input
+                    type="text"
+                    placeholder="Misal: Amir"
+                    value={inputName}
+                    onChange={(e) => setInputName(e.target.value)}
+                    style={inlineStyles.input}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: "12px" }}>
+                <label style={inlineStyles.label}>Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="Misal: 03001234567"
+                  value={inputPhone}
+                  onChange={(e) => setInputPhone(e.target.value)}
+                  style={inlineStyles.input}
+                />
+              </div>
+
+              <div style={{ marginBottom: "18px" }}>
+                <label style={inlineStyles.label}>Password</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={inputPassword}
+                    onChange={(e) => setInputPassword(e.target.value)}
+                    style={{ ...inlineStyles.input, paddingRight: "40px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#94a3b8",
+                      fontSize: "16px"
+                    }}
+                  >
+                    {showPassword ? "👁️‍🗨️" : "👁️"}
+                  </button>
+                </div>
+              </div>
+
+              {authError && <div style={inlineStyles.errorBox}>{authError}</div>}
+              {authSuccess && <div style={inlineStyles.successBox}>{authSuccess}</div>}
+
+              <button type="submit" style={inlineStyles.submitBtn}>
+                {isLoginMode ? "Login via Database" : "Register to Database"}
+              </button>
+            </form>
+
+            <div style={{ textAlign: "center", marginTop: "14px" }}>
+              <button 
+                type="button"
+                onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(""); setAuthSuccess(""); }}
+                style={inlineStyles.switchTextBtn}
+              >
+                {isLoginMode ? "Account nahi hai? Sign Up karein" : "Pehle se account hai? Login karein"}
+              </button>
+            </div>
           </div>
-          <AdminDashboard />
         </div>
       )}
-
-      {/* AUTHENTICATION MODAL */}
-      <AuthModal 
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLoginSuccess={(loggedUser) => {
-          setUser(loggedUser);
-          triggerNotification(`Welcome back, ${loggedUser.name}! 👋`, "success");
-        }}
-      />
 
       <footer>
         <div className="footer-brand"><strong>GOOVO</strong></div>
@@ -341,13 +485,116 @@ function MainApp() {
   );
 }
 
+// Inline Styles Object for Authentication Modal & Buttons
+const inlineStyles = {
+  loginNavBtn: {
+    background: "#0284c7",
+    color: "#fff",
+    borderRadius: "6px",
+    border: "none",
+    padding: "6px 14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "13px",
+  },
+  logoutBtn: {
+    background: "#ef4444",
+    color: "#fff",
+    borderRadius: "6px",
+    border: "none",
+    padding: "5px 10px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "12px",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0, left: 0, right: 0, bottom: 0,
+    background: "rgba(0, 0, 0, 0.8)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2000,
+  },
+  modalCard: {
+    background: "#1e293b",
+    color: "#fff",
+    padding: "24px",
+    borderRadius: "12px",
+    width: "90%",
+    maxWidth: "380px",
+    boxShadow: "0 15px 30px rgba(0,0,0,0.5)",
+    border: "1px solid #334155",
+    boxSizing: "border-box",
+  },
+  closeBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#94a3b8",
+    fontSize: "18px",
+    cursor: "pointer",
+  },
+  label: {
+    display: "block",
+    fontSize: "12px",
+    marginBottom: "5px",
+    color: "#cbd5e1",
+    fontWeight: "600",
+  },
+  input: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "6px",
+    border: "1px solid #475569",
+    background: "#0f172a",
+    color: "#fff",
+    fontSize: "14px",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  submitBtn: {
+    width: "100%",
+    background: "#0284c7",
+    color: "#fff",
+    border: "none",
+    padding: "11px",
+    borderRadius: "6px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+  switchTextBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#38bdf8",
+    fontSize: "12px",
+    cursor: "pointer",
+    textDecoration: "underline",
+  },
+  errorBox: {
+    background: "#7f1d1d",
+    color: "#fca5a5",
+    padding: "9px",
+    borderRadius: "6px",
+    marginBottom: "12px",
+    fontSize: "12px",
+  },
+  successBox: {
+    background: "#14532d",
+    color: "#86efac",
+    padding: "9px",
+    borderRadius: "6px",
+    marginBottom: "12px",
+    fontSize: "12px",
+  }
+};
+
 export default function App() {
   return (
     <LanguageProvider>
       <Router>
         <Routes>
           <Route path="/" element={<MainApp />} />
-          <Route path="/secret-admin-panel" element={<AdminDashboard />} />
         </Routes>
       </Router>
     </LanguageProvider>

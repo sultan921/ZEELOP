@@ -2,59 +2,33 @@ import React, { useState, useEffect } from "react";
 import "./Profile.css";
 
 function Profile({ user, setUser, coins, navigate }) {
-  // LocalStorage se pehle se saved user data retrieve karein
-  const savedUser = JSON.parse(localStorage.getItem("goovoUser")) || {};
+  // Current logged-in user data localStorage se retrieve karein
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem("goovoCurrentUser");
+    return saved ? JSON.parse(saved) : (user || {});
+  });
 
-  const [name, setName] = useState(user?.name || savedUser.name || "");
-  const [phone, setPhone] = useState(user?.phone || savedUser.phone || "");
-  const [walletType, setWalletType] = useState(user?.walletType || savedUser.walletType || "easypaisa");
-  const [walletNumber, setWalletNumber] = useState(user?.walletNumber || savedUser.walletNumber || "");
+  const [name] = useState(currentUser.name || "User");
+  const [phone] = useState(currentUser.phone || "N/A");
   
-  // Dynamic Check: Agar naam pehle se saved hai toh input lock ho jayega
-  const isNameLocked = Boolean(user?.name || savedUser.name);
-
-  // Profile Picture State initialized from localStorage
-  const [avatar, setAvatar] = useState(user?.avatar || savedUser.avatar || "");
+  const [walletType, setWalletType] = useState(currentUser.walletType || "easypaisa");
+  const [walletNumber, setWalletNumber] = useState(currentUser.walletNumber || currentUser.phone || "");
+  
+  // Profile Picture State
+  const [avatar, setAvatar] = useState(currentUser.avatar || "");
   const [message, setMessage] = useState({ text: "", type: "success" });
 
-  // Admin Modal & Auth States
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [passcode, setPasscode] = useState("");
-  const [adminError, setAdminError] = useState("");
-
-  // Secret Admin Password
-  const ADMIN_PASSWORD = "mySecretAdminPass123";
-
-  // Component mount hone par localStorage se avatar sync karein
+  // Component mount hone par session data sync karein
   useEffect(() => {
-    const localData = JSON.parse(localStorage.getItem("goovoUser"));
-    if (localData && localData.avatar) {
-      setAvatar(localData.avatar);
+    const saved = localStorage.getItem("goovoCurrentUser");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setCurrentUser(parsed);
+      if (parsed.avatar) setAvatar(parsed.avatar);
+      if (parsed.walletType) setWalletType(parsed.walletType);
+      if (parsed.walletNumber) setWalletNumber(parsed.walletNumber);
     }
   }, []);
-
-  const handleAdminAuth = (e) => {
-    e.preventDefault();
-    
-    // Space ignore aur case-insensitive matching ke liye trim aur toLowerCase use kiya hai
-    const enteredPassword = passcode.trim().toLowerCase();
-    const actualPassword = ADMIN_PASSWORD.trim().toLowerCase();
-
-    if (enteredPassword === actualPassword) {
-      setShowAdminLogin(false);
-      setPasscode("");
-      setAdminError("");
-      
-      // Admin verification flag ko session storage mein set karein taaki Admin page dobara password na maange
-      sessionStorage.setItem("isAdminAuthenticated", "true");
-
-      if (navigate) {
-        navigate("admin");
-      }
-    } else {
-      setAdminError("❌ Incorrect Password!");
-    }
-  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -72,11 +46,14 @@ function Profile({ user, setUser, coins, navigate }) {
         const newAvatar = reader.result;
         setAvatar(newAvatar);
 
-        // Instant saving to LocalStorage when picture is selected
-        const existingData = JSON.parse(localStorage.getItem("goovoUser")) || {};
-        const updatedData = { ...existingData, avatar: newAvatar };
-        localStorage.setItem("goovoUser", JSON.stringify(updatedData));
-        if (setUser) setUser(updatedData);
+        // Update current user session & database
+        const updatedUser = { ...currentUser, avatar: newAvatar };
+        setCurrentUser(updatedUser);
+        localStorage.setItem("goovoCurrentUser", JSON.stringify(updatedUser));
+        if (setUser) setUser(updatedUser);
+
+        // Update in users database as well if needed
+        updateUserInDatabase(updatedUser);
 
         setMessage({
           text: "✅ Profile picture updated & saved!",
@@ -88,37 +65,33 @@ function Profile({ user, setUser, coins, navigate }) {
     }
   };
 
+  const updateUserInDatabase = (updatedData) => {
+    const usersDB = JSON.parse(localStorage.getItem("goovo_registered_users_db")) || [];
+    const index = usersDB.findIndex((u) => u.phone === updatedData.phone);
+    if (index !== -1) {
+      usersDB[index] = { ...usersDB[index], ...updatedData };
+      localStorage.setItem("goovo_registered_users_db", JSON.stringify(usersDB));
+    }
+  };
+
   const handleSave = (e) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      setMessage({ text: "⚠️ Please enter your full name.", type: "error" });
-      return;
-    }
-
-    if (!phone || phone.length < 10) {
-      setMessage({
-        text: "⚠️ Please enter a valid 10 to 11-digit WhatsApp number.",
-        type: "error"
-      });
-      return;
-    }
-
     const updatedUser = {
-      ...user,
-      name,
-      phone,
+      ...currentUser,
       walletType,
       walletNumber: walletNumber || phone,
       avatar,
       isVerified: true
     };
 
+    setCurrentUser(updatedUser);
+    localStorage.setItem("goovoCurrentUser", JSON.stringify(updatedUser));
     if (setUser) setUser(updatedUser);
-    localStorage.setItem("goovoUser", JSON.stringify(updatedUser));
+    updateUserInDatabase(updatedUser);
 
     setMessage({
-      text: "✅ Profile details & picture saved successfully!",
+      text: "✅ Wallet details updated successfully!",
       type: "success"
     });
 
@@ -161,9 +134,9 @@ function Profile({ user, setUser, coins, navigate }) {
         </div>
 
         <div className="user-meta">
-          <h2>{name || "Guest User"}</h2>
+          <h2>{name}</h2>
           <p className="status-badge">
-            {user?.isVerified || savedUser.isVerified ? "✓ Verified Account" : "⚠️ Profile Incomplete"}
+            ✓ Verified Secure Account
           </p>
         </div>
       </div>
@@ -187,44 +160,46 @@ function Profile({ user, setUser, coins, navigate }) {
 
       {/* FORM SECTION */}
       <div className="profile-card">
-        <h3>⚙️ Personal & Payment Info</h3>
+        <h3>⚙️ Account & Payout Info</h3>
         <p className="card-subtext">
-          Draw winners ko inhi details par paisa bheja jayega.
+          Aapka naam aur phone number permanent secure hain. Payouts ke liye apna wallet number yahan update kar sakte hain.
         </p>
 
         <form onSubmit={handleSave}>
           <div className="form-group">
-            <label>Full Name</label>
+            <label>Full Name (Locked)</label>
             <input
               type="text"
-              placeholder="e.g. Ali Raza"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isNameLocked}
+              disabled
               style={{
-                backgroundColor: isNameLocked ? "#1e293b" : "inherit",
-                cursor: isNameLocked ? "not-allowed" : "text",
-                opacity: isNameLocked ? 0.7 : 1
+                backgroundColor: "#1e293b",
+                cursor: "not-allowed",
+                opacity: 0.7,
+                color: "#94a3b8"
               }}
-              required
             />
-            {isNameLocked && (
-              <small style={{ color: "#f59e0b", display: "block", marginTop: "4px" }}>
-                🔒 Security reason ki waja se naam aik martaba save hone ke baad change nahi ho sakta.
-              </small>
-            )}
+            <small style={{ color: "#f59e0b", display: "block", marginTop: "4px" }}>
+              🔒 Security reason ki waja se registered naam change nahi ho sakta.
+            </small>
           </div>
 
           <div className="form-group">
-            <label>WhatsApp / Mobile Number</label>
+            <label>WhatsApp / Mobile Number (Locked)</label>
             <input
               type="tel"
-              placeholder="e.g. 03001234567"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
+              disabled
+              style={{
+                backgroundColor: "#1e293b",
+                cursor: "not-allowed",
+                opacity: 0.7,
+                color: "#94a3b8"
+              }}
             />
-            <small>Prizes aur verification updates ke liye zaroori hai.</small>
+            <small style={{ color: "#f59e0b", display: "block", marginTop: "4px" }}>
+              🔒 Login phone number permanent hai aur change nahi ho sakta.
+            </small>
           </div>
 
           <div className="form-row">
@@ -247,12 +222,13 @@ function Profile({ user, setUser, coins, navigate }) {
                 placeholder="e.g. 03001234567"
                 value={walletNumber}
                 onChange={(e) => setWalletNumber(e.target.value)}
+                required
               />
             </div>
           </div>
 
           <button type="submit" className="save-btn">
-            Save Profile Details
+            Save Wallet Details
           </button>
         </form>
       </div>
@@ -282,77 +258,6 @@ function Profile({ user, setUser, coins, navigate }) {
           <span>📱 Contact Official WhatsApp Support</span>
         </button>
       </div>
-
-      {/* ADMIN CONTROL SECTION */}
-      <div className="profile-card" style={{ marginTop: "20px", border: "1px solid #0284c7" }}>
-        <h3>👑 Control Panel</h3>
-        <p className="card-subtext">Admin features ke liye niche click karein.</p>
-        <button
-          type="button"
-          onClick={() => setShowAdminLogin(true)}
-          style={{
-            background: "#0284c7",
-            color: "#fff",
-            border: "none",
-            padding: "12px",
-            width: "100%",
-            borderRadius: "8px",
-            fontWeight: "bold",
-            cursor: "pointer"
-          }}
-        >
-          🔐 Switch to Admin Mode
-        </button>
-      </div>
-
-      {/* ADMIN LOGIN MODAL */}
-      {showAdminLogin && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-          background: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000
-        }}>
-          <div style={{ background: "#1e293b", padding: "25px", borderRadius: "12px", width: "90%", maxWidth: "350px", color: "#fff" }}>
-            <h3 style={{ margin: "0 0 10px 0" }}>🔐 Admin Authentication</h3>
-            <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "15px" }}>Enter password to open Admin Dashboard.</p>
-
-            {adminError && <p style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{adminError}</p>}
-
-            <form onSubmit={handleAdminAuth}>
-              <input
-                type="password"
-                placeholder="Enter Admin Password"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  marginBottom: "15px",
-                  borderRadius: "6px",
-                  border: "1px solid #475569",
-                  background: "#0f172a",
-                  color: "#fff",
-                  boxSizing: "border-box"
-                }}
-              />
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  type="submit"
-                  style={{ background: "#0284c7", color: "#fff", border: "none", padding: "10px", borderRadius: "6px", cursor: "pointer", flex: 1, fontWeight: "bold" }}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowAdminLogin(false); setAdminError(""); }}
-                  style={{ background: "#475569", color: "#fff", border: "none", padding: "10px", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
