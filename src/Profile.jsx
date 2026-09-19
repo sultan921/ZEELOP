@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import "./Profile.css";
+// import "./Profile.css";
 
 function Profile({ user, setUser, coins, navigate }) {
   // Current logged-in user data localStorage se retrieve karein
