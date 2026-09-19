@@ -9,6 +9,9 @@ import LuckyDraw from "./LuckyDraw";
 import Winner from "./Winner";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
+// 🌐 LIVE BACKEND URL CONFIGURED
+const BACKEND_URL = "https://zeelop-production.up.railway.app";
+
 function MainApp() {
   const { lang, setLang, currency, setCurrency, t, activeCurrency, convertCoins } = useLanguage();
   const navigate = useNavigate ? useNavigate() : null;
@@ -34,13 +37,14 @@ function MainApp() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Updated starting coins to 0 instead of 1000
   const [coins, setCoins] = useState(() => {
     const savedUser = localStorage.getItem("goovoCurrentUser");
     if (savedUser) {
       const parsed = JSON.parse(savedUser);
-      return parsed.coins ?? Number(localStorage.getItem("goovoCoins")) ?? 1000;
+      return parsed.coins ?? Number(localStorage.getItem("goovoCoins")) ?? 0;
     }
-    return Number(localStorage.getItem("goovoCoins")) || 1000;
+    return Number(localStorage.getItem("goovoCoins")) || 0;
   });
 
   const [pendingPayments, setPendingPayments] = useState(() => {
@@ -70,7 +74,7 @@ function MainApp() {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
 
-  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Node.js Backend API
+  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -82,7 +86,7 @@ function MainApp() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/signup", {
+      const response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,7 +122,7 @@ function MainApp() {
     }
   };
 
-  // 🔗 BACKEND LINKED: Login Handler via Node.js Backend API
+  // 🔗 BACKEND LINKED: Login Handler via Live Railway Backend API
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -130,7 +134,7 @@ function MainApp() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -477,7 +481,7 @@ function MainApp() {
       )}
 
       <footer>
-        <div className="footer-brand"><strong>GOOVO</strong></div>
+        <div className="footer-brand"><strong>ZEELOP</strong></div>
         <p>{t.footerSub}</p>
         <small>{t.rights}</small>
       </footer>
