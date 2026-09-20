@@ -7,6 +7,9 @@ import Wallet from "./Wallet";
 import Profile from "./Profile";
 import LuckyDraw from "./LuckyDraw";
 import Winner from "./Winner";
+import PrivacyPolicy from "./PrivacyPolicy";
+import Terms from "./Terms";
+import RefundPolicy from "./RefundPolicy";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
@@ -226,24 +229,24 @@ function MainApp() {
   return (
     <div className="app">
       {/* NAVBAR */}
-      <nav className="navbar">
-        <div className="nav-left-group">
-          <div className="brand" onClick={() => navigateToPage("home")}>
+      <nav className="navbar" style={inlineStyles.navbar}>
+        <div className="nav-left-group" style={inlineStyles.navLeftGroup}>
+          <div className="brand" onClick={() => navigateToPage("home")} style={{ cursor: "pointer" }}>
             <span>ZEELOP</span>
           </div>
 
-          <div className="header-controls">
-            <div className="compact-pill">
+          <div className="header-controls" style={inlineStyles.headerControls}>
+            <div className="compact-pill" style={inlineStyles.compactPill}>
               <span className="pill-icon">🌐</span>
-              <select value={lang} onChange={(e) => setLang(e.target.value)} className="compact-select">
+              <select value={lang} onChange={(e) => setLang(e.target.value)} className="compact-select" style={inlineStyles.compactSelect}>
                 <option value="UR">UR</option>
                 <option value="EN">EN</option>
                 <option value="HI">HI</option>
               </select>
             </div>
 
-            <div className="compact-pill">
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="compact-select">
+            <div className="compact-pill" style={inlineStyles.compactPill}>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="compact-select" style={inlineStyles.compactSelect}>
                 <option value="PKR">PKR</option>
                 <option value="INR">INR</option>
                 <option value="USD">USD</option>
@@ -253,18 +256,21 @@ function MainApp() {
           </div>
         </div>
 
-        <div className="nav-links">
-          <button className={page === "home" ? "active" : ""} onClick={() => navigateToPage("home")}>{t.home}</button>
-          <button className={page === "earn" ? "active" : ""} onClick={() => navigateToPage("earn")}>{t.earn}</button>
-          <button className={page === "luckyDraw" ? "active" : ""} onClick={() => navigateToPage("luckyDraw")}>{t.luckyDraw}</button>
-          <button className={page === "winner" ? "active" : ""} onClick={() => navigateToPage("winner")}>🏆 Winners</button>
-          <button className={page === "wallet" ? "active" : ""} onClick={() => navigateToPage("wallet")}>{t.wallet}</button>
-          <button className={page === "profile" ? "active" : ""} onClick={() => navigateToPage("profile")}>{t.profile}</button>
+        <div className="nav-links" style={inlineStyles.navLinks}>
+          <button className={page === "home" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("home")}>{t.home}</button>
+          <button className={page === "earn" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("earn")}>{t.earn}</button>
+          <button className={page === "luckyDraw" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("luckyDraw")}>{t.luckyDraw}</button>
+          <button className={page === "winner" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("winner")}>Winners</button>
+          <button className={page === "wallet" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("wallet")}>{t.wallet}</button>
+          <button className={page === "profile" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("profile")}>{t.profile}</button>
+          <button className={page === "privacy" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("privacy")}>Privacy</button>
+          <button className={page === "terms" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("terms")}>Terms</button>
+          <button className={page === "refund" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("refund")}>Refund</button>
 
           {/* AUTH BUTTONS IN NAVBAR */}
           {user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "12px", color: "#38bdf8", fontWeight: "bold" }}>👤 {user.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: "bold" }}>👤 {user.name}</span>
               <button onClick={handleLogout} style={inlineStyles.logoutBtn}>Logout</button>
             </div>
           ) : (
@@ -274,24 +280,27 @@ function MainApp() {
           )}
         </div>
 
-        <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+        <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} style={inlineStyles.menuToggle}>
           {menuOpen ? "✕" : "☰"}
         </button>
       </nav>
 
       {/* MOBILE MENU */}
       {menuOpen && (
-        <div className="mobile-menu">
-          <button onClick={() => navigateToPage("home")}>🏠 {t.home}</button>
-          <button onClick={() => navigateToPage("earn")}>🎮 {t.earn}</button>
-          <button onClick={() => navigateToPage("luckyDraw")}>🎁 {t.luckyDraw}</button>
-          <button onClick={() => navigateToPage("winner")}>🏆 Winners</button>
-          <button onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
-          <button onClick={() => navigateToPage("profile")}>👤 {t.profile}</button>
+        <div className="mobile-menu" style={inlineStyles.mobileMenu}>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 {t.home}</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 {t.earn}</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("luckyDraw")}>🎁 {t.luckyDraw}</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("winner")}>🏆 Winners</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 {t.profile}</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
+          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
           {user ? (
-            <button onClick={handleLogout} style={{ color: "#ef4444" }}>🚪 Logout ({user.name})</button>
+            <button onClick={handleLogout} style={{ ...inlineStyles.mobileMenuBtn, color: "#ef4444" }}>🚪 Logout ({user.name})</button>
           ) : (
-            <button onClick={() => { setMenuOpen(false); setIsLoginMode(false); setShowAuthModal(true); }} style={{ color: "#38bdf8" }}>🔑 Login / Signup</button>
+            <button onClick={() => { setMenuOpen(false); setIsLoginMode(false); setShowAuthModal(true); }} style={{ ...inlineStyles.mobileMenuBtn, color: "#38bdf8" }}>🔑 Login / Signup</button>
           )}
         </div>
       )}
@@ -386,6 +395,10 @@ function MainApp() {
           onOpenAuth={() => setShowAuthModal(true)}
         />
       )}
+
+      {page === "privacy" && <PrivacyPolicy navigate={navigateToPage} />}
+      {page === "terms" && <Terms navigate={navigateToPage} />}
+      {page === "refund" && <RefundPolicy navigate={navigateToPage} />}
 
       {/* PROFESSIONAL SIGN UP / LOGIN MODAL WITH EYE ICON */}
       {showAuthModal && (
@@ -489,27 +502,106 @@ function MainApp() {
   );
 }
 
-// Inline Styles Object for Authentication Modal & Buttons
+// Inline Styles Object for Compact Header and Professional Layout
 const inlineStyles = {
+  navbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 16px",
+    flexWrap: "wrap",
+    gap: "8px"
+  },
+  navLeftGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px"
+  },
+  headerControls: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px"
+  },
+  compactPill: {
+    display: "flex",
+    alignItems: "center",
+    background: "rgba(255,255,255,0.06)",
+    borderRadius: "4px",
+    padding: "2px 4px",
+    border: "1px solid rgba(255,255,255,0.1)"
+  },
+  compactSelect: {
+    background: "transparent",
+    border: "none",
+    color: "#fff",
+    fontSize: "11px",
+    cursor: "pointer",
+    outline: "none"
+  },
+  navLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    flexWrap: "wrap"
+  },
+  navBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#cbd5e1",
+    fontSize: "12px",
+    cursor: "pointer",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    fontWeight: "500",
+    transition: "all 0.2s"
+  },
   loginNavBtn: {
     background: "#0284c7",
     color: "#fff",
-    borderRadius: "6px",
-    border: "none",
-    padding: "6px 14px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "13px",
-  },
-  logoutBtn: {
-    background: "#ef4444",
-    color: "#fff",
-    borderRadius: "6px",
+    borderRadius: "5px",
     border: "none",
     padding: "5px 10px",
     cursor: "pointer",
     fontWeight: "600",
-    fontSize: "12px",
+    fontSize: "11px",
+  },
+  logoutBtn: {
+    background: "#ef4444",
+    color: "#fff",
+    borderRadius: "5px",
+    border: "none",
+    padding: "4px 8px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "11px",
+  },
+  menuToggle: {
+    display: "none",
+    background: "transparent",
+    border: "none",
+    color: "#fff",
+    fontSize: "20px",
+    cursor: "pointer"
+  },
+  mobileMenu: {
+    display: "flex",
+    flexDirection: "column",
+    background: "#1e293b",
+    padding: "10px",
+    borderRadius: "8px",
+    gap: "6px",
+    marginTop: "6px",
+    border: "1px solid #334155"
+  },
+  mobileMenuBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#fff",
+    textAlign: "left",
+    padding: "8px 10px",
+    fontSize: "13px",
+    borderRadius: "4px",
+    cursor: "pointer"
   },
   modalOverlay: {
     position: "fixed",
