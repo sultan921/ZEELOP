@@ -6,10 +6,7 @@ import Earn from "./Earn";
 import Wallet from "./Wallet";
 import Profile from "./Profile";
 import LuckyDraw from "./LuckyDraw";
-import Winner from "./Winner";
-import PrivacyPolicy from "./PrivacyPolicy";
-import Terms from "./Terms";
-import RefundPolicy from "./RefundPolicy";
+import Winner from "./Winner";import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
