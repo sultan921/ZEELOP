@@ -6,11 +6,12 @@ import Earn from "./Earn";
 import Wallet from "./Wallet";
 import Profile from "./Profile";
 import LuckyDraw from "./LuckyDraw";
-import Winner from "./Winner";import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
+import Winner from "./Winner";
+import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
-const BACKEND_URL = "https://zeelop-production.up.railway.app";
+const BACKEND_URL = "https://goovo-backend-production-5cc4.up.railway.app/";
 
 function MainApp() {
   const { lang, setLang, currency, setCurrency, t, activeCurrency, convertCoins } = useLanguage();
@@ -37,7 +38,7 @@ function MainApp() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Updated starting coins to 0 instead of 1000
+  // Coins state synced with User or LocalStorage
   const [coins, setCoins] = useState(() => {
     const savedUser = localStorage.getItem("goovoCurrentUser");
     if (savedUser) {
@@ -66,13 +67,32 @@ function MainApp() {
   useEffect(() => {
     localStorage.setItem("goovoCoins", coins);
     if (user) {
-      setUser((prev) => (prev ? { ...prev, coins } : null));
+      setUser((prev) => {
+        if (!prev) return null;
+        const updated = { ...prev, coins };
+        // Sync coins to backend database if user is logged in
+        updateUserCoinsInDatabase(updated.phone, coins);
+        return updated;
+      });
     }
   }, [coins]);
 
   useEffect(() => {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
+
+  // 🔗 Helper to sync coins with Backend Database
+  const updateUserCoinsInDatabase = async (phone, newCoins) => {
+    try {
+      await fetch(`${BACKEND_URL}/api/user/update-coins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, coins: newCoins })
+      });
+    } catch (err) {
+      console.error("Failed to sync coins with backend:", err);
+    }
+  };
 
   // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
   const handleRegisterSubmit = async (e) => {
@@ -410,7 +430,7 @@ function MainApp() {
 
             <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "18px", lineHeight: "1.4" }}>
               {isLoginMode 
-                ? "Apne registered phone number aur password se MongoDB se login karein." 
+                ? "Apne registered phone number aur password se database se login karein." 
                 : "Naya account direct backend database me save hoga."}
             </p>
 
