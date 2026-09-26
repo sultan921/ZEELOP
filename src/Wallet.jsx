@@ -323,7 +323,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
         </div>
       )}
 
-      {/* DEPOSIT TAB WITH YOUR OFFICIAL ACCOUNTS */}
+      {/* DEPOSIT TAB */}
       {activeTab === "deposit" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
           <h3 style={{ marginTop: 0, color: "#38bdf8" }}>💳 Official Deposit Accounts</h3>
