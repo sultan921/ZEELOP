@@ -186,7 +186,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     return saved ? JSON.parse(saved) : [];
   });
 
-  // CINEMATIC FULL SCREEN MODAL SPIN STATES
   const [cinematicSpinActive, setCinematicSpinActive] = useState(false);
   const [spinPhase, setSpinPhase] = useState("rolling");
   const [rollingCandidate, setRollingCandidate] = useState({ name: "Initializing...", ticket: "GD-000000" });
@@ -245,7 +244,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     localStorage.setItem("luckydraw_my_tickets", JSON.stringify(myTickets));
   }, [myTickets]);
 
-  // CINEMATIC FULL SCREEN SPINNER RUNNER
   const runCinematicSpin = useCallback((isRealDraw = false) => {
     if (cinematicSpinActive) return;
     setCinematicSpinActive(true);
@@ -389,7 +387,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     window.open(`https://wa.me/${adminPhone}?text=${text}`, "_blank");
   };
 
-  // REAL SECURE BACKEND API TICKET VERIFICATION (STEP 2)
   const handleVerifyTicketSubmit = async (e) => {
     e.preventDefault();
     const cleanTicket = inputTicket.trim().toUpperCase();
@@ -405,7 +402,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     setSubmissionStep(2);
 
     try {
-      // Updated to your live Railway backend URL
       const response = await fetch("https://goovo-backend-production-5cc4.up.railway.app/api/verify-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -441,7 +437,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
 
   return (
     <div className="page-container luckydraw-wrapper" style={{ position: "relative" }}>
-      {/* FULL SCREEN CINEMATIC SPIN OVERLAY MODAL */}
       {cinematicSpinActive && (
         <div style={modalStyles.overlay}>
           <div style={modalStyles.modalCard}>
@@ -479,7 +474,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
         </div>
       )}
 
-      {/* NORMAL LUCKY DRAW INTERFACE */}
       <div className="product-banner">
         <span className="live-tag">{t.liveTag}</span>
         <h2>💵 {prizeAmountText} (SULTAN EDITION)</h2>
@@ -657,7 +651,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
         </div>
       )}
 
-      {/* INDEPENDENT DEMO SPIN TEST SECTION */}
       <div className="live-spin-section" style={{ textAlign: "center", marginTop: "40px" }}>
         <button
           onClick={() => runCinematicSpin(false)}
@@ -685,7 +678,6 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
   );
 }
 
-// Professional Full-Screen Cinematic Modal Styles
 const modalStyles = {
   overlay: {
     position: "fixed",

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 // 🌐 UPDATED LIVE BACKEND URL
-const BACKEND_URL = "https://goovo-backend-production-5cc4.up.railway.app/";
+const BACKEND_URL = "https://goovo-backend-production.up.railway.app/";
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login

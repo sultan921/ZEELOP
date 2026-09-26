@@ -21,16 +21,27 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
   const [transferCoins, setTransferCoins] = useState("");
 
   const [alertMsg, setAlertMsg] = useState({ text: "", type: "" });
+  const [transactions, setTransactions] = useState([]);
 
-  // REAL TRANSACTION HISTORY (Loaded from LocalStorage)
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem("goovoRealTransactions");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // LIVE BACKEND URL
+  const BACKEND_URL = "https://goovo-backend-production.up.railway.app";
 
+  // Fetch Transactions from Live MongoDB Backend
   useEffect(() => {
-    localStorage.setItem("goovoRealTransactions", JSON.stringify(transactions));
-  }, [transactions]);
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/records`);
+      const data = await res.json();
+      if (data.success) {
+        setTransactions(data.records);
+      }
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+    }
+  };
 
   const showAlert = (text, type = "success") => {
     setAlertMsg({ text, type });
@@ -39,7 +50,8 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
     }, 4000);
   };
 
-  const handleDepositSubmit = (e) => {
+  // HANDLE DEPOSIT SUBMIT (Live MongoDB Connect)
+  const handleDepositSubmit = async (e) => {
     e.preventDefault();
     const amountNum = Number(depositAmount);
 
@@ -57,10 +69,9 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
     }
 
     const newDepositEntry = {
-      id: "DEP-" + Date.now().toString().slice(-6),
+      userId: user?.id || "guest_user",
       type: "Deposit",
       amount: amountNum,
-      coinsCalculated: amountNum * 10, // 1 PKR = 10 Coins ratio
       method: depositMethod,
       senderNumber: depositSenderNumber,
       trxId: depositTrxId,
@@ -68,21 +79,31 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       date: new Date().toLocaleString(),
     };
 
-    const updatedTx = [newDepositEntry, ...transactions];
-    setTransactions(updatedTx);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/records`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newDepositEntry),
+      });
+      const data = await res.json();
 
-    const existingPending = JSON.parse(localStorage.getItem("goovoPendingPayments") || "[]");
-    localStorage.setItem("goovoPendingPayments", JSON.stringify([newDepositEntry, ...existingPending]));
-
-    showAlert("🚀 Deposit Proof submit ho gaya hai! Verification ke baad coins add ho jayenge.", "success");
-
-    setDepositAmount("");
-    setDepositTrxId("");
-    setDepositSenderNumber("");
-    setActiveTab("history");
+      if (data.success) {
+        setTransactions([data.record, ...transactions]);
+        showAlert("🚀 Deposit Proof live submit ho gaya hai! Verification ke baad coins add honge.", "success");
+        setDepositAmount("");
+        setDepositTrxId("");
+        setDepositSenderNumber("");
+        setActiveTab("history");
+      } else {
+        showAlert("❌ Deposit submit karne me masla aaya.", "error");
+      }
+    } catch (err) {
+      showAlert("❌ Server connection error!", "error");
+    }
   };
 
-  const handleWithdrawSubmit = (e) => {
+  // HANDLE WITHDRAW SUBMIT (Live MongoDB Connect)
+  const handleWithdrawSubmit = async (e) => {
     e.preventDefault();
     const amountNum = Number(withdrawAmount);
 
@@ -110,7 +131,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
 
     if (success) {
       const newWithdrawalEntry = {
-        id: "WTH-" + Date.now().toString().slice(-6),
+        userId: user?.id || "guest_user",
         type: "Withdrawal",
         amount: amountNum,
         method: withdrawMethod,
@@ -120,19 +141,30 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
         date: new Date().toLocaleString(),
       };
 
-      const updatedTx = [newWithdrawalEntry, ...transactions];
-      setTransactions(updatedTx);
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/records`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newWithdrawalEntry),
+        });
+        const data = await res.json();
 
-      showAlert("✅ Cashout request submit ho gayi hai.", "success");
-
-      setWithdrawAmount("");
-      setAccountNumber("");
-      setAccountName("");
-      setActiveTab("history");
+        if (data.success) {
+          setTransactions([data.record, ...transactions]);
+          showAlert("✅ Cashout request live save ho gayi hai.", "success");
+          setWithdrawAmount("");
+          setAccountNumber("");
+          setAccountName("");
+          setActiveTab("history");
+        }
+      } catch (err) {
+        showAlert("❌ Server connection error!", "error");
+      }
     }
   };
 
-  const handleTransferSubmit = (e) => {
+  // HANDLE TRANSFER SUBMIT (Live MongoDB Connect)
+  const handleTransferSubmit = async (e) => {
     e.preventDefault();
     const amountNum = Number(transferCoins);
 
@@ -156,7 +188,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
 
     if (success) {
       const newTransferEntry = {
-        id: "TRF-" + Date.now().toString().slice(-6),
+        userId: user?.id || "guest_user",
         type: "Transfer Out",
         amount: amountNum,
         method: "P2P Transfer",
@@ -165,14 +197,24 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
         date: new Date().toLocaleString(),
       };
 
-      const updatedTx = [newTransferEntry, ...transactions];
-      setTransactions(updatedTx);
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/records`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newTransferEntry),
+        });
+        const data = await res.json();
 
-      showAlert(`🎉 Successfully transferred ${amountNum} coins to ${transferUserId}!`, "success");
-
-      setTransferUserId("");
-      setTransferCoins("");
-      setActiveTab("history");
+        if (data.success) {
+          setTransactions([data.record, ...transactions]);
+          showAlert(`🎉 Successfully transferred ${amountNum} coins to ${transferUserId}!`, "success");
+          setTransferUserId("");
+          setTransferCoins("");
+          setActiveTab("history");
+        }
+      } catch (err) {
+        showAlert("❌ Server connection error!", "error");
+      }
     }
   };
 
@@ -316,9 +358,9 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       {/* OVERVIEW TAB */}
       {activeTab === "overview" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#38bdf8" }}>📊 Real Account Summary</h3>
+          <h3 style={{ margin: "0 0 10px 0", color: "#38bdf8" }}>📊 Live MongoDB Account Summary</h3>
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px", lineHeight: "1.6" }}>
-            Aapke account ki tamam live activity aur transaction records yahan save hotay hain. Upper diye gaye options se Deposit, Withdraw ya Transfer execute karein.
+            Aapke account ki tamam live activity aur transaction records ab seedha MongoDB Atlas par secure hain.
           </p>
         </div>
       )}
@@ -327,30 +369,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       {activeTab === "deposit" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
           <h3 style={{ marginTop: 0, color: "#38bdf8" }}>💳 Official Deposit Accounts</h3>
-          <p style={{ color: "#94a3b8", fontSize: "13px" }}>
-            Nechay diye gaye official accounts par payment transfer karne ke baad apni details submit karein:
-          </p>
-          
-          <div
-            style={{
-              background: "#0f172a",
-              padding: "16px",
-              borderRadius: "8px",
-              margin: "15px 0",
-              border: "1px solid #0284c7",
-              display: "grid",
-              gap: "8px"
-            }}
-          >
-            <p style={{ margin: 0, fontSize: "14px", color: "#fff" }}>
-              🔹 <b>EasyPaisa / JazzCash Number:</b> <span style={{ color: "#38bdf8", fontWeight: "bold" }}>03333997682</span>
-            </p>
-            <p style={{ margin: 0, fontSize: "14px", color: "#fff" }}>
-              🔹 <b>Meezan Bank Account:</b> <span style={{ color: "#38bdf8", fontWeight: "bold" }}>00300116199005</span>
-            </p>
-          </div>
-
-          <form onSubmit={handleDepositSubmit} style={{ display: "grid", gap: "12px" }}>
+          <form onSubmit={handleDepositSubmit} style={{ display: "grid", gap: "12px", marginTop: "15px" }}>
             <div>
               <label style={{ fontSize: "12px", color: "#94a3b8" }}>Payment Method Used</label>
               <select
@@ -410,7 +429,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
                 marginTop: "6px",
               }}
             >
-              🚀 Submit Real Deposit Proof
+              🚀 Submit Live Deposit Proof
             </button>
           </form>
         </div>
@@ -420,8 +439,6 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       {activeTab === "withdraw" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
           <h3 style={{ marginTop: 0, color: "#38bdf8" }}>💵 Request Real Withdrawal</h3>
-          <p style={{ color: "#94a3b8", fontSize: "13px" }}>Apne kamaaye hue coins ko real cash me apne account me mangwayein.</p>
-
           <form onSubmit={handleWithdrawSubmit} style={{ display: "grid", gap: "12px", marginTop: "15px" }}>
             <div>
               <label style={{ fontSize: "12px", color: "#94a3b8" }}>Payment Method</label>
@@ -482,7 +499,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
                 marginTop: "6px",
               }}
             >
-              Request Cashout Now
+              Request Live Cashout
             </button>
           </form>
         </div>
@@ -491,9 +508,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       {/* TRANSFER TAB */}
       {activeTab === "transfer" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
-          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>🔄 Real Peer-to-Peer Coins Transfer</h3>
-          <p style={{ color: "#94a3b8", fontSize: "13px" }}>Kisi doosre user ko direct coins bhejin.</p>
-
+          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>🔄 Peer-to-Peer Coins Transfer</h3>
           <form onSubmit={handleTransferSubmit} style={{ display: "grid", gap: "12px", marginTop: "15px" }}>
             <div>
               <label style={{ fontSize: "12px", color: "#94a3b8" }}>Recipient User ID / Mobile Number</label>
@@ -530,7 +545,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
                 marginTop: "6px",
               }}
             >
-              Transfer Instant Coins
+              Transfer Live Coins
             </button>
           </form>
         </div>
@@ -539,15 +554,14 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
       {/* HISTORY TAB */}
       {activeTab === "history" && (
         <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
-          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>📜 Real Account Logs</h3>
-
+          <h3 style={{ marginTop: 0, color: "#38bdf8" }}>📜 Live MongoDB Account Logs</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "15px" }}>
             {transactions.length === 0 ? (
-              <p style={{ color: "#94a3b8", margin: 0, textAlign: "center", padding: "20px" }}>No real transactions recorded yet.</p>
+              <p style={{ color: "#94a3b8", margin: 0, textAlign: "center", padding: "20px" }}>No transactions recorded in database yet.</p>
             ) : (
-              transactions.map((tx) => (
+              transactions.map((tx, idx) => (
                 <div
-                  key={tx.id}
+                  key={tx._id || idx}
                   style={{
                     background: "#0f172a",
                     padding: "12px 15px",
@@ -569,7 +583,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
 
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontWeight: "bold", color: tx.type === "Withdrawal" ? "#ef4444" : "#22c55e" }}>
-                      {tx.type === "Withdrawal" ? "-" : "+"}🪙 {tx.amount.toLocaleString()}
+                      {tx.type === "Withdrawal" ? "-" : "+"}🪙 {tx.amount?.toLocaleString()}
                     </div>
                     <span style={{ fontSize: "11px", color: tx.status === "Completed" ? "#22c55e" : "#f59e0b" }}>
                       {tx.status}

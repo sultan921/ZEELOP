@@ -11,7 +11,7 @@ import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
-const BACKEND_URL = "https://goovo-backend-production-5cc4.up.railway.app/";
+const BACKEND_URL = "https://goovo-backend-production.up.railway.app/";
 
 function MainApp() {
   const { lang, setLang, currency, setCurrency, t, activeCurrency, convertCoins } = useLanguage();
