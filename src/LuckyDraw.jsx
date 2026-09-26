@@ -405,8 +405,8 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     setSubmissionStep(2);
 
     try {
-      // Connects to your backend server.js API
-      const response = await fetch("http://localhost:5000/api/verify-ticket", {
+      // Updated to your live Railway backend URL
+      const response = await fetch("https://goovo-backend-production-5cc4.up.railway.app/api/verify-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticketCode: cleanTicket, userPhone: user.phone })
@@ -431,7 +431,7 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
       }
     } catch (error) {
       console.error("Backend Verification Error:", error);
-      const networkErrorMsg = { type: "error", text: "❌ Server connection failed! Make sure your backend server.js is running on port 5000." };
+      const networkErrorMsg = { type: "error", text: "❌ Server connection failed! Make sure your Railway backend server is active." };
       setTicketStatusMsg(networkErrorMsg);
     } finally {
       setIsVerifying(false);
