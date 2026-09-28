@@ -402,7 +402,7 @@ function LuckyDraw({ coins, deductCoins, submitPaymentProof, user = {}, navigate
     setSubmissionStep(2);
 
     try {
-      const response = await fetch("https://goovo-backend-production-5cc4.up.railway.app/api/verify-ticket", {
+      const response = await fetch("https://my-react-backend-production-84e7.up.railway.app/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticketCode: cleanTicket, userPhone: user.phone })

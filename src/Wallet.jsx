@@ -24,7 +24,7 @@ export default function Wallet({ coins, user, pendingPayments, deductCoins, navi
   const [transactions, setTransactions] = useState([]);
 
   // LIVE BACKEND URL
-  const BACKEND_URL = "https://goovo-backend-production.up.railway.app";
+  const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app/";
 
   // Fetch Transactions from Live MongoDB Backend
   useEffect(() => {
