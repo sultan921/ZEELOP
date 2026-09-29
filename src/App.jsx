@@ -9,7 +9,7 @@ import LuckyDraw from "./LuckyDraw";
 import Winner from "./Winner";
 import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
-import BannerAd from "./BannerAd";
+import Bannerad from "./Bannerad";
 import NativeBanner from "./NativeBanner";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
@@ -646,7 +646,7 @@ function MainApp() {
 
         <div style={{ width: "100%", background: "#0f172a", padding: "10px 0" }}>
           <p style={{ textAlign: "center", fontSize: "10px", color: "#64748b", margin: "0 0 5px 0" }}>Sponsored Ad</p>
-          <BannerAd />
+          <Bannerad />
         </div>
       </div>
 

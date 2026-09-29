@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 
-export default function BannerAd() {
+export default function Bannerad() {
   const bannerRef = useRef(null);
 
   useEffect(() => {
