@@ -18,7 +18,7 @@ body {
   border-bottom: 1px solid #334155;
   position: sticky;
   top: 0;
-  zIndex: 1000;
+  z-index: 1000;
 }
 
 .nav-left-group {
@@ -54,7 +54,7 @@ body {
   background: transparent;
   border: none;
   color: #fff;
-  fontSize: 11px;
+  font-size: 11px;
   cursor: pointer;
   outline: none;
 }

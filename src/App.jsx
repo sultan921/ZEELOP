@@ -19,12 +19,12 @@ function MainApp() {
 
   const [page, setPage] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false); // Dropdown State for Desktop
+  const [legalDropdownOpen, setLegalDropdownOpen] = useState(false); // 📂 For Desktop Legal Dropdown
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login
+  const [isLoginMode, setIsLoginMode] = useState(false);
 
   // Password Show/Hide Toggle State
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +42,6 @@ function MainApp() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Coins state synced with User or LocalStorage
   const [coins, setCoins] = useState(() => {
     const savedUser = localStorage.getItem("goovoCurrentUser");
     if (savedUser) {
@@ -59,7 +58,6 @@ function MainApp() {
 
   const [message, setMessage] = useState({ text: "", type: "success" });
 
-  // Save session & coins
   useEffect(() => {
     if (user) {
       localStorage.setItem("goovoCurrentUser", JSON.stringify(user));
@@ -84,7 +82,6 @@ function MainApp() {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
 
-  // 📱 Responsive navbar: mobile / tablet / desktop
   useEffect(() => {
     const handleResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
@@ -95,7 +92,6 @@ function MainApp() {
   const isTablet = viewportWidth > 700 && viewportWidth <= 1100;
   const navStyles = getResponsiveNavStyles(isMobile, isTablet);
 
-  // 🔗 Helper to sync coins with Backend Database
   const updateUserCoinsInDatabase = async (phone, newCoins) => {
     try {
       await fetch(`${BACKEND_URL}/api/user/update-coins`, {
@@ -108,7 +104,6 @@ function MainApp() {
     }
   };
 
-  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -152,11 +147,10 @@ function MainApp() {
       }, 1200);
 
     } catch (err) {
-      setAuthError("❌ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
+      setAuthError("❌ Backend server se connection nahi ho saka!");
     }
   };
 
-  // 🔗 BACKEND LINKED: Login Handler via Live Railway Backend API
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -254,7 +248,7 @@ function MainApp() {
     }
     setPage(newPage);
     setMenuOpen(false);
-    setAboutDropdownOpen(false);
+    setLegalDropdownOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -329,15 +323,15 @@ function MainApp() {
               {t.profile}
             </button>
 
-            {/* 📁 PROFESSIONAL ABOUT US DROPDOWN (Privacy, Terms, Refund combined) */}
-            <div style={navStyles.dropdownContainer} onMouseLeave={() => setAboutDropdownOpen(false)}>
+            {/* 📂 Grouped About Us / Legal Dropdown for Desktop */}
+            <div style={{ position: "relative" }}>
               <button 
-                style={{ ...navStyles.navBtn, display: "flex", alignItems: "center", gap: "4px" }}
-                onClick={() => setAboutDropdownOpen(!aboutDropdownOpen)}
+                style={navStyles.navBtn} 
+                onClick={() => setLegalDropdownOpen(!legalDropdownOpen)}
               >
                 About Us ▾
               </button>
-              {aboutDropdownOpen && (
+              {legalDropdownOpen && (
                 <div style={navStyles.dropdownMenu}>
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
@@ -378,13 +372,13 @@ function MainApp() {
         )}
       </nav>
 
-      {/* MOBILE MENU */}
+      {/* 📱 FLUID MOBILE MENU (Fixed overlay wrapper ensuring instant access right near the top) */}
       {menuOpen && isMobile && (
         <div className="mobile-menu" style={navStyles.mobileMenu}>
           <div style={navStyles.mobileMenuHeader}>
             <div>
               <div style={navStyles.mobileMenuTitle}>ZEELOP</div>
-              <div style={navStyles.mobileMenuSub}>Navigation</div>
+              <div style={navStyles.mobileMenuSub}>Quick Navigation</div>
             </div>
             <button
               onClick={() => setMenuOpen(false)}
@@ -402,16 +396,9 @@ function MainApp() {
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("winner")}>🏆 <span>Winners</span></button>
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 <span>{t.wallet}</span></button>
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 <span>{t.profile}</span></button>
-          </div>
-
-          {/* Mobile Policies / About Us Section */}
-          <div style={{ background: "rgba(255,255,255,0.03)", padding: "8px", borderRadius: "6px" }}>
-            <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: "bold" }}>📁 About Us & Policies</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
-            </div>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("privacy")}>🛡️ <span>Privacy</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("terms")}>📄 <span>Terms</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("refund")}>🔄 <span>Refund</span></button>
           </div>
 
           <div style={navStyles.mobileSettings}>
@@ -557,7 +544,7 @@ function MainApp() {
       {page === "terms" && <Terms navigate={navigateToPage} />}
       {page === "refund" && <RefundPolicy navigate={navigateToPage} />}
 
-      {/* PROFESSIONAL SIGN UP / LOGIN MODAL WITH EYE ICON */}
+      {/* AUTH MODAL */}
       {showAuthModal && (
         <div style={navStyles.modalOverlay}>
           <div style={navStyles.modalCard}>
@@ -659,7 +646,6 @@ function MainApp() {
   );
 }
 
-// Complete responsive navigation & component inline styles helper
 const getResponsiveNavStyles = (isMobile, isTablet) => {
   return {
     navbar: {
@@ -738,34 +724,29 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       borderRadius: "4px",
       fontWeight: "500",
     },
-    dropdownContainer: {
-      position: "relative",
-      display: "inline-block",
-    },
     dropdownMenu: {
       position: "absolute",
-      right: 0,
       top: "100%",
+      right: 0,
       background: "#1e293b",
       border: "1px solid #334155",
       borderRadius: "6px",
-      boxShadow: "0 10px 20px rgba(0,0,0,0.5)",
+      boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
       display: "flex",
       flexDirection: "column",
-      minWidth: "160px",
+      minWidth: "150px",
+      padding: "6px",
       zIndex: 1100,
-      overflow: "hidden",
     },
     dropdownItem: {
       background: "transparent",
       border: "none",
       color: "#cbd5e1",
-      padding: "10px 14px",
       textAlign: "left",
+      padding: "8px 10px",
       fontSize: "12px",
       cursor: "pointer",
-      fontWeight: "500",
-      borderBottom: "1px solid rgba(255,255,255,0.05)",
+      borderRadius: "4px",
     },
     loginNavBtn: {
       background: "#0284c7",
@@ -815,8 +796,8 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       padding: "16px",
       gap: "12px",
       borderBottom: "1px solid #334155",
-      position: "absolute",
-      top: "100%",
+      position: "fixed", // 📌 Fixed directly under the top navbar for instant chipka hua layout
+      top: "50px", 
       left: 0,
       right: 0,
       zIndex: 1500,
@@ -827,15 +808,15 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       justifyContent: "space-between",
       alignItems: "center",
       borderBottom: "1px solid #334155",
-      paddingBottom: "10px",
+      paddingBottom: "8px",
     },
     mobileMenuTitle: {
       fontWeight: "800",
-      fontSize: "16px",
+      fontSize: "15px",
       color: "#38bdf8",
     },
     mobileMenuSub: {
-      fontSize: "11px",
+      fontSize: "10px",
       color: "#94a3b8",
     },
     mobileCloseBtn: {
@@ -847,42 +828,29 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
     },
     mobileMenuGrid: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "8px",
+      gridTemplateColumns: "1fr 1fr 1fr", // 📌 3 column grid taake saare options aik hi screen par compactly fit ho jayein bagair lambe scroll ke
+      gap: "6px",
     },
     mobileMenuBtn: {
       background: "rgba(255, 255, 255, 0.05)",
       border: "1px solid rgba(255, 255, 255, 0.1)",
       color: "#fff",
-      textAlign: "left",
-      padding: "10px",
-      fontSize: "12px",
+      textAlign: "center",
+      padding: "8px 4px",
+      fontSize: "11px",
       borderRadius: "6px",
       cursor: "pointer",
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
-      gap: "8px",
-    },
-    mobileMenuBtnFull: {
-      background: "rgba(255, 255, 255, 0.05)",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      color: "#fff",
-      textAlign: "left",
-      padding: "8px 10px",
-      fontSize: "12px",
-      borderRadius: "4px",
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      gap: "8px",
-      width: "100%",
+      gap: "4px",
     },
     mobileSettings: {
       display: "flex",
       flexDirection: "column",
-      gap: "8px",
+      gap: "6px",
       background: "rgba(0, 0, 0, 0.2)",
-      padding: "10px",
+      padding: "8px",
       borderRadius: "6px",
     },
     mobileSettingItem: {
@@ -890,25 +858,25 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       justifyContent: "space-between",
       alignItems: "center",
       color: "#cbd5e1",
-      fontSize: "12px",
+      fontSize: "11px",
     },
     mobileSelect: {
       background: "#0f172a",
       border: "1px solid #475569",
       color: "#fff",
       borderRadius: "4px",
-      padding: "4px 8px",
-      fontSize: "12px",
+      padding: "3px 6px",
+      fontSize: "11px",
       outline: "none",
     },
     mobileLoginBtn: {
       background: "#0284c7",
       color: "#fff",
       border: "none",
-      padding: "10px",
+      padding: "8px",
       borderRadius: "6px",
       fontWeight: "bold",
-      fontSize: "13px",
+      fontSize: "12px",
       cursor: "pointer",
       textAlign: "center",
     },
@@ -916,10 +884,10 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       background: "#ef4444",
       color: "#fff",
       border: "none",
-      padding: "10px",
+      padding: "8px",
       borderRadius: "6px",
       fontWeight: "bold",
-      fontSize: "13px",
+      fontSize: "12px",
       cursor: "pointer",
       textAlign: "center",
     },
@@ -928,7 +896,7 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       top: 0, left: 0, right: 0, bottom: 0,
       background: "rgba(0, 0, 0, 0.8)",
       display: "flex",
-      justifyContent: "center",
+      justifyContext: "center",
       alignItems: "center",
       zIndex: 2000,
     },
@@ -971,7 +939,7 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
     submitBtn: {
       width: "100%",
       background: "#0284c7",
-      color: "#fff",
+      color: " #fff",
       border: "none",
       padding: "11px",
       borderRadius: "6px",
