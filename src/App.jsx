@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 // import "./App.css";
 
@@ -9,6 +9,8 @@ import LuckyDraw from "./LuckyDraw";
 import Winner from "./Winner";
 import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
+import BannerAd from "./BannerAd";
+import NativeBanner from "./NativeBanner";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
 const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app";
@@ -263,7 +265,7 @@ function MainApp() {
             style={navStyles.brand}
           >
             <span style={navStyles.brandMark}>Z</span>
-            <span>ZEELOP</span>
+            <span>SAMATKAAR</span>
           </div>
 
           {!isMobile && (
@@ -325,8 +327,8 @@ function MainApp() {
 
             {/* 📂 Grouped About Us / Legal Dropdown for Desktop */}
             <div style={{ position: "relative" }}>
-              <button 
-                style={navStyles.navBtn} 
+              <button
+                style={navStyles.navBtn}
                 onClick={() => setLegalDropdownOpen(!legalDropdownOpen)}
               >
                 About Us ▾
@@ -377,7 +379,7 @@ function MainApp() {
         <div className="mobile-menu" style={navStyles.mobileMenu}>
           <div style={navStyles.mobileMenuHeader}>
             <div>
-              <div style={navStyles.mobileMenuTitle}>ZEELOP</div>
+              <div style={navStyles.mobileMenuTitle}>SAMATKAAR</div>
               <div style={navStyles.mobileMenuSub}>Quick Navigation</div>
             </div>
             <button
@@ -556,8 +558,8 @@ function MainApp() {
             </div>
 
             <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "18px", lineHeight: "1.4" }}>
-              {isLoginMode 
-                ? "Apne registered phone number aur password se database se login karein." 
+              {isLoginMode
+                ? "Apne registered phone number aur password se database se login karein."
                 : "Naya account direct backend database me save hoga."}
             </p>
 
@@ -625,7 +627,7 @@ function MainApp() {
             </form>
 
             <div style={{ textAlign: "center", marginTop: "14px" }}>
-              <button 
+              <button
                 type="button"
                 onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(""); setAuthSuccess(""); }}
                 style={navStyles.switchTextBtn}
@@ -637,10 +639,44 @@ function MainApp() {
         </div>
       )}
 
+      <div>
+        <NativeBanner />
+      </div>
+      <div>
+
+        <div style={{ width: "100%", background: "#0f172a", padding: "10px 0" }}>
+          <p style={{ textAlign: "center", fontSize: "10px", color: "#64748b", margin: "0 0 5px 0" }}>Sponsored Ad</p>
+          <BannerAd />
+        </div>
+      </div>
+
+      <div>
+        <div style={{ textAlign: "center", margin: "20px 0" }}>
+          <a
+            href="https://www.profitableratecpmnetwork.com/swuv1uz8?key=5fec83873e63f363d7048230b2d1b7ef"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "#22c55e",
+              color: "#fff",
+              padding: "12px 24px",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontWeight: "bold",
+              fontSize: "15px",
+              display: "inline-block",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.3)"
+            }}
+          >
+            🎁 Bonus Reward Claim Karein (Smartlink)
+          </a>
+        </div>
+      </div>
+
       <footer>
-        <div className="footer-brand"><strong>ZEELOP</strong></div>
+        <div className="footer-brand"><strong>SAMATKAAR</strong></div>
         <p>{t.footerSub}</p>
-        <small>© 2026 ZEELOP. Official App Version</small>
+        <small>© 2026 SAMATKAAR. Official App Version</small>
       </footer>
     </div>
   );
@@ -797,7 +833,7 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
       gap: "12px",
       borderBottom: "1px solid #334155",
       position: "fixed", // 📌 Fixed directly under the top navbar for instant chipka hua layout
-      top: "50px", 
+      top: "50px",
       left: 0,
       right: 0,
       zIndex: 1500,
