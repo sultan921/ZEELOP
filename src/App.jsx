@@ -10,7 +10,7 @@ import Winner from "./Winner";
 import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 import Bannerad from "./Bannerad";
-import NativeBanner from "./NativeBanner";
+// import NativeBanner from "./NativeBanner";
 
 // 🌐 LIVE BACKEND URL CONFIGURED
 const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app";
@@ -638,10 +638,6 @@ function MainApp() {
           </div>
         </div>
       )}
-
-      <div>
-        <NativeBanner />
-      </div>
       <div>
 
         <div style={{ width: "100%", background: "#0f172a", padding: "10px 0" }}>
