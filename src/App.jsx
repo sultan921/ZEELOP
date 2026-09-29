@@ -20,25 +20,21 @@ function MainApp() {
   const [page, setPage] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login
+  const [isLoginMode, setIsLoginMode] = useState(false);
 
-  // Password Show/Hide Toggle State
   const [showPassword, setShowPassword] = useState(false);
 
-  // Form states
   const [inputName, setInputName] = useState("");
   const [inputPhone, setInputPhone] = useState("");
   const [inputPassword, setInputPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
 
-  // Persistent User Session
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("goovoCurrentUser");
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Coins state synced with User or LocalStorage
   const [coins, setCoins] = useState(() => {
     const savedUser = localStorage.getItem("goovoCurrentUser");
     if (savedUser) {
@@ -55,7 +51,6 @@ function MainApp() {
 
   const [message, setMessage] = useState({ text: "", type: "success" });
 
-  // Save session & coins
   useEffect(() => {
     if (user) {
       localStorage.setItem("goovoCurrentUser", JSON.stringify(user));
@@ -70,7 +65,6 @@ function MainApp() {
       setUser((prev) => {
         if (!prev) return null;
         const updated = { ...prev, coins };
-        // Sync coins to backend database if user is logged in
         updateUserCoinsInDatabase(updated.phone, coins);
         return updated;
       });
@@ -81,7 +75,6 @@ function MainApp() {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
 
-  // 🔗 Helper to sync coins with Backend Database
   const updateUserCoinsInDatabase = async (phone, newCoins) => {
     try {
       await fetch(`${BACKEND_URL}/api/user/update-coins`, {
@@ -94,7 +87,6 @@ function MainApp() {
     }
   };
 
-  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -138,11 +130,10 @@ function MainApp() {
       }, 1200);
 
     } catch (err) {
-      setAuthError("❌ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
+      setAuthError("❌ Backend server se connection nahi ho saka!");
     }
   };
 
-  // 🔗 BACKEND LINKED: Login Handler via Live Railway Backend API
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -273,7 +264,8 @@ function MainApp() {
           </div>
         </div>
 
-        <div className="nav-links" style={inlineStyles.navLinks}>
+        {/* DESKTOP NAV LINKS */}
+        <div className="nav-links desktop-only-links" style={inlineStyles.navLinks}>
           <button className={page === "home" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("home")}>{t.home}</button>
           <button className={page === "earn" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("earn")}>{t.earn}</button>
           <button className={page === "luckyDraw" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("luckyDraw")}>{t.luckyDraw}</button>
@@ -284,7 +276,6 @@ function MainApp() {
           <button className={page === "terms" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("terms")}>Terms</button>
           <button className={page === "refund" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("refund")}>Refund</button>
 
-          {/* AUTH BUTTONS IN NAVBAR */}
           {user ? (
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: "bold" }}>👤 {user.name}</span>
@@ -297,12 +288,13 @@ function MainApp() {
           )}
         </div>
 
+        {/* HAMBURGER TOGGLE BUTTON */}
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} style={inlineStyles.menuToggle}>
           {menuOpen ? "✕" : "☰"}
         </button>
       </nav>
 
-      {/* MOBILE MENU */}
+      {/* MOBILE MENU DROPDOWN */}
       {menuOpen && (
         <div className="mobile-menu" style={inlineStyles.mobileMenu}>
           <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 {t.home}</button>
@@ -417,7 +409,6 @@ function MainApp() {
       {page === "terms" && <Terms navigate={navigateToPage} />}
       {page === "refund" && <RefundPolicy navigate={navigateToPage} />}
 
-      {/* PROFESSIONAL SIGN UP / LOGIN MODAL WITH EYE ICON */}
       {showAuthModal && (
         <div style={inlineStyles.modalOverlay}>
           <div style={inlineStyles.modalCard}>
@@ -519,15 +510,16 @@ function MainApp() {
   );
 }
 
-// Inline Styles Object for Compact Header and Professional Layout
 const inlineStyles = {
   navbar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "8px 16px",
+    padding: "10px 16px",
     flexWrap: "wrap",
-    gap: "8px"
+    gap: "8px",
+    background: "#0f172a",
+    borderBottom: "1px solid #1e293b"
   },
   navLeftGroup: {
     display: "flex",
@@ -593,11 +585,13 @@ const inlineStyles = {
     fontSize: "11px",
   },
   menuToggle: {
-    display: "none",
+    display: "none", // CSS media query se mobile par show hoga
     background: "transparent",
-    border: "none",
+    border: "1px solid #334155",
     color: "#fff",
-    fontSize: "20px",
+    fontSize: "18px",
+    padding: "4px 8px",
+    borderRadius: "6px",
     cursor: "pointer"
   },
   mobileMenu: {
@@ -608,7 +602,8 @@ const inlineStyles = {
     borderRadius: "8px",
     gap: "6px",
     marginTop: "6px",
-    border: "1px solid #334155"
+    border: "1px solid #334155",
+    width: "100%"
   },
   mobileMenuBtn: {
     background: "transparent",

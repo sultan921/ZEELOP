@@ -560,3 +560,14 @@ footer small {
     text-align: center;
   }
 }
+
+@media (max-width: 768px) {
+  .desktop-nav-links {
+    display: none !important;
+  }
+}
+@media (min-width: 769px) {
+  .menu-toggle {
+    display: none !important;
+  }
+}
