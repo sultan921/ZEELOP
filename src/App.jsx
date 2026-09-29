@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
-import "./App.css";
+// import "./App.css";
 
 import Earn from "./Earn";
 import Wallet from "./Wallet";
@@ -19,22 +19,30 @@ function MainApp() {
 
   const [page, setPage] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false); // Dropdown State for Desktop
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login
 
+  // Password Show/Hide Toggle State
   const [showPassword, setShowPassword] = useState(false);
 
+  // Form states
   const [inputName, setInputName] = useState("");
   const [inputPhone, setInputPhone] = useState("");
   const [inputPassword, setInputPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
 
+  // Persistent User Session
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("goovoCurrentUser");
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Coins state synced with User or LocalStorage
   const [coins, setCoins] = useState(() => {
     const savedUser = localStorage.getItem("goovoCurrentUser");
     if (savedUser) {
@@ -51,6 +59,7 @@ function MainApp() {
 
   const [message, setMessage] = useState({ text: "", type: "success" });
 
+  // Save session & coins
   useEffect(() => {
     if (user) {
       localStorage.setItem("goovoCurrentUser", JSON.stringify(user));
@@ -75,6 +84,18 @@ function MainApp() {
     localStorage.setItem("goovoPendingPayments", JSON.stringify(pendingPayments));
   }, [pendingPayments]);
 
+  // 📱 Responsive navbar: mobile / tablet / desktop
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isMobile = viewportWidth <= 700;
+  const isTablet = viewportWidth > 700 && viewportWidth <= 1100;
+  const navStyles = getResponsiveNavStyles(isMobile, isTablet);
+
+  // 🔗 Helper to sync coins with Backend Database
   const updateUserCoinsInDatabase = async (phone, newCoins) => {
     try {
       await fetch(`${BACKEND_URL}/api/user/update-coins`, {
@@ -87,6 +108,7 @@ function MainApp() {
     }
   };
 
+  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -130,10 +152,11 @@ function MainApp() {
       }, 1200);
 
     } catch (err) {
-      setAuthError("❌ Backend server se connection nahi ho saka!");
+      setAuthError("❌ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
     }
   };
 
+  // 🔗 BACKEND LINKED: Login Handler via Live Railway Backend API
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -231,30 +254,187 @@ function MainApp() {
     }
     setPage(newPage);
     setMenuOpen(false);
+    setAboutDropdownOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <div className="app">
-      {/* NAVBAR */}
-      <nav className="navbar" style={inlineStyles.navbar}>
-        <div className="nav-left-group" style={inlineStyles.navLeftGroup}>
-          <div className="brand" onClick={() => navigateToPage("home")} style={{ cursor: "pointer" }}>
+      {/* RESPONSIVE PROFESSIONAL NAVBAR */}
+      <nav className="navbar" style={navStyles.navbar}>
+        <div className="nav-left-group" style={navStyles.navLeftGroup}>
+          <div
+            className="brand"
+            onClick={() => navigateToPage("home")}
+            style={navStyles.brand}
+          >
+            <span style={navStyles.brandMark}>Z</span>
             <span>ZEELOP</span>
           </div>
 
-          <div className="header-controls" style={inlineStyles.headerControls}>
-            <div className="compact-pill" style={inlineStyles.compactPill}>
-              <span className="pill-icon">🌐</span>
-              <select value={lang} onChange={(e) => setLang(e.target.value)} className="compact-select" style={inlineStyles.compactSelect}>
+          {!isMobile && (
+            <div className="header-controls" style={navStyles.headerControls}>
+              <div className="compact-pill" style={navStyles.compactPill}>
+                <span style={navStyles.pillIcon}>🌐</span>
+                <select
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value)}
+                  className="compact-select"
+                  style={navStyles.compactSelect}
+                  aria-label="Language"
+                >
+                  <option value="UR">UR</option>
+                  <option value="EN">EN</option>
+                  <option value="HI">HI</option>
+                </select>
+              </div>
+
+              <div className="compact-pill" style={navStyles.compactPill}>
+                <span style={navStyles.pillIcon}>💱</span>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="compact-select"
+                  style={navStyles.compactSelect}
+                  aria-label="Currency"
+                >
+                  <option value="PKR">PKR</option>
+                  <option value="INR">INR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!isMobile ? (
+          <div className="nav-links" style={navStyles.navLinks}>
+            <button className={page === "home" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("home")}>
+              {t.home}
+            </button>
+            <button className={page === "earn" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("earn")}>
+              {t.earn}
+            </button>
+            <button className={page === "luckyDraw" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("luckyDraw")}>
+              {t.luckyDraw}
+            </button>
+            <button className={page === "winner" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("winner")}>
+              Winners
+            </button>
+            <button className={page === "wallet" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("wallet")}>
+              {t.wallet}
+            </button>
+            <button className={page === "profile" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("profile")}>
+              {t.profile}
+            </button>
+
+            {/* 📁 PROFESSIONAL ABOUT US DROPDOWN (Privacy, Terms, Refund combined) */}
+            <div style={navStyles.dropdownContainer} onMouseLeave={() => setAboutDropdownOpen(false)}>
+              <button 
+                style={{ ...navStyles.navBtn, display: "flex", alignItems: "center", gap: "4px" }}
+                onClick={() => setAboutDropdownOpen(!aboutDropdownOpen)}
+              >
+                About Us ▾
+              </button>
+              {aboutDropdownOpen && (
+                <div style={navStyles.dropdownMenu}>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
+                </div>
+              )}
+            </div>
+
+            {user ? (
+              <div style={navStyles.userArea}>
+                <span style={navStyles.userName}>👤 {user.name}</span>
+                <button onClick={handleLogout} style={navStyles.logoutBtn}>
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsLoginMode(false);
+                  setShowAuthModal(true);
+                }}
+                style={navStyles.loginNavBtn}
+              >
+                Login / Signup
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            className="menu-toggle"
+            onClick={() => setMenuOpen(!menuOpen)}
+            style={navStyles.menuToggle}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+          >
+            <span style={navStyles.menuIcon}>{menuOpen ? "✕" : "☰"}</span>
+          </button>
+        )}
+      </nav>
+
+      {/* MOBILE MENU */}
+      {menuOpen && isMobile && (
+        <div className="mobile-menu" style={navStyles.mobileMenu}>
+          <div style={navStyles.mobileMenuHeader}>
+            <div>
+              <div style={navStyles.mobileMenuTitle}>ZEELOP</div>
+              <div style={navStyles.mobileMenuSub}>Navigation</div>
+            </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              style={navStyles.mobileCloseBtn}
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={navStyles.mobileMenuGrid}>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 <span>{t.home}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 <span>{t.earn}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("luckyDraw")}>🎁 <span>{t.luckyDraw}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("winner")}>🏆 <span>Winners</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 <span>{t.wallet}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 <span>{t.profile}</span></button>
+          </div>
+
+          {/* Mobile Policies / About Us Section */}
+          <div style={{ background: "rgba(255,255,255,0.03)", padding: "8px", borderRadius: "6px" }}>
+            <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: "bold" }}>📁 About Us & Policies</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
+            </div>
+          </div>
+
+          <div style={navStyles.mobileSettings}>
+            <div style={navStyles.mobileSettingItem}>
+              <span>🌐 Language</span>
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value)}
+                style={navStyles.mobileSelect}
+              >
                 <option value="UR">UR</option>
                 <option value="EN">EN</option>
                 <option value="HI">HI</option>
               </select>
             </div>
 
-            <div className="compact-pill" style={inlineStyles.compactPill}>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="compact-select" style={inlineStyles.compactSelect}>
+            <div style={navStyles.mobileSettingItem}>
+              <span>💱 Currency</span>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                style={navStyles.mobileSelect}
+              >
                 <option value="PKR">PKR</option>
                 <option value="INR">INR</option>
                 <option value="USD">USD</option>
@@ -262,54 +442,22 @@ function MainApp() {
               </select>
             </div>
           </div>
-        </div>
-
-        {/* DESKTOP NAV LINKS */}
-        <div className="nav-links desktop-only-links" style={inlineStyles.navLinks}>
-          <button className={page === "home" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("home")}>{t.home}</button>
-          <button className={page === "earn" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("earn")}>{t.earn}</button>
-          <button className={page === "luckyDraw" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("luckyDraw")}>{t.luckyDraw}</button>
-          <button className={page === "winner" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("winner")}>Winners</button>
-          <button className={page === "wallet" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("wallet")}>{t.wallet}</button>
-          <button className={page === "profile" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("profile")}>{t.profile}</button>
-          <button className={page === "privacy" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("privacy")}>Privacy</button>
-          <button className={page === "terms" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("terms")}>Terms</button>
-          <button className={page === "refund" ? "active" : ""} style={inlineStyles.navBtn} onClick={() => navigateToPage("refund")}>Refund</button>
 
           {user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: "bold" }}>👤 {user.name}</span>
-              <button onClick={handleLogout} style={inlineStyles.logoutBtn}>Logout</button>
-            </div>
-          ) : (
-            <button onClick={() => { setIsLoginMode(false); setShowAuthModal(true); }} style={inlineStyles.loginNavBtn}>
-              Login / Signup
+            <button onClick={handleLogout} style={navStyles.mobileLogoutBtn}>
+              🚪 Logout <span>({user.name})</span>
             </button>
-          )}
-        </div>
-
-        {/* HAMBURGER TOGGLE BUTTON */}
-        <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} style={inlineStyles.menuToggle}>
-          {menuOpen ? "✕" : "☰"}
-        </button>
-      </nav>
-
-      {/* MOBILE MENU DROPDOWN */}
-      {menuOpen && (
-        <div className="mobile-menu" style={inlineStyles.mobileMenu}>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 {t.home}</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 {t.earn}</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("luckyDraw")}>🎁 {t.luckyDraw}</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("winner")}>🏆 Winners</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 {t.profile}</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
-          <button style={inlineStyles.mobileMenuBtn} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
-          {user ? (
-            <button onClick={handleLogout} style={{ ...inlineStyles.mobileMenuBtn, color: "#ef4444" }}>🚪 Logout ({user.name})</button>
           ) : (
-            <button onClick={() => { setMenuOpen(false); setIsLoginMode(false); setShowAuthModal(true); }} style={{ ...inlineStyles.mobileMenuBtn, color: "#38bdf8" }}>🔑 Login / Signup</button>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setIsLoginMode(false);
+                setShowAuthModal(true);
+              }}
+              style={navStyles.mobileLoginBtn}
+            >
+              🔑 Login / Signup
+            </button>
           )}
         </div>
       )}
@@ -409,14 +557,15 @@ function MainApp() {
       {page === "terms" && <Terms navigate={navigateToPage} />}
       {page === "refund" && <RefundPolicy navigate={navigateToPage} />}
 
+      {/* PROFESSIONAL SIGN UP / LOGIN MODAL WITH EYE ICON */}
       {showAuthModal && (
-        <div style={inlineStyles.modalOverlay}>
-          <div style={inlineStyles.modalCard}>
+        <div style={navStyles.modalOverlay}>
+          <div style={navStyles.modalCard}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ margin: 0, color: "#fff", fontSize: "18px" }}>
                 {isLoginMode ? "🔑 Database Login" : "📝 Database Sign Up"}
               </h3>
-              <button onClick={() => setShowAuthModal(false)} style={inlineStyles.closeBtn}>✕</button>
+              <button onClick={() => setShowAuthModal(false)} style={navStyles.closeBtn}>✕</button>
             </div>
 
             <p style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "18px", lineHeight: "1.4" }}>
@@ -428,37 +577,37 @@ function MainApp() {
             <form onSubmit={isLoginMode ? handleLoginSubmit : handleRegisterSubmit}>
               {!isLoginMode && (
                 <div style={{ marginBottom: "12px" }}>
-                  <label style={inlineStyles.label}>Aapka Naam (Name)</label>
+                  <label style={navStyles.label}>Aapka Naam (Name)</label>
                   <input
                     type="text"
                     placeholder="Misal: Amir"
                     value={inputName}
                     onChange={(e) => setInputName(e.target.value)}
-                    style={inlineStyles.input}
+                    style={navStyles.input}
                   />
                 </div>
               )}
 
               <div style={{ marginBottom: "12px" }}>
-                <label style={inlineStyles.label}>Phone Number</label>
+                <label style={navStyles.label}>Phone Number</label>
                 <input
                   type="text"
                   placeholder="Misal: 03001234567"
                   value={inputPhone}
                   onChange={(e) => setInputPhone(e.target.value)}
-                  style={inlineStyles.input}
+                  style={navStyles.input}
                 />
               </div>
 
               <div style={{ marginBottom: "18px" }}>
-                <label style={inlineStyles.label}>Password</label>
+                <label style={navStyles.label}>Password</label>
                 <div style={{ position: "relative" }}>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={inputPassword}
                     onChange={(e) => setInputPassword(e.target.value)}
-                    style={{ ...inlineStyles.input, paddingRight: "40px" }}
+                    style={{ ...navStyles.input, paddingRight: "40px" }}
                   />
                   <button
                     type="button"
@@ -480,10 +629,10 @@ function MainApp() {
                 </div>
               </div>
 
-              {authError && <div style={inlineStyles.errorBox}>{authError}</div>}
-              {authSuccess && <div style={inlineStyles.successBox}>{authSuccess}</div>}
+              {authError && <div style={navStyles.errorBox}>{authError}</div>}
+              {authSuccess && <div style={navStyles.successBox}>{authSuccess}</div>}
 
-              <button type="submit" style={inlineStyles.submitBtn}>
+              <button type="submit" style={navStyles.submitBtn}>
                 {isLoginMode ? "Login via Database" : "Register to Database"}
               </button>
             </form>
@@ -492,7 +641,7 @@ function MainApp() {
               <button 
                 type="button"
                 onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(""); setAuthSuccess(""); }}
-                style={inlineStyles.switchTextBtn}
+                style={navStyles.switchTextBtn}
               >
                 {isLoginMode ? "Account nahi hai? Sign Up karein" : "Pehle se account hai? Login karein"}
               </button>
@@ -510,191 +659,351 @@ function MainApp() {
   );
 }
 
-const inlineStyles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 16px",
-    flexWrap: "wrap",
-    gap: "8px",
-    background: "#0f172a",
-    borderBottom: "1px solid #1e293b"
-  },
-  navLeftGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px"
-  },
-  headerControls: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px"
-  },
-  compactPill: {
-    display: "flex",
-    alignItems: "center",
-    background: "rgba(255,255,255,0.06)",
-    borderRadius: "4px",
-    padding: "2px 4px",
-    border: "1px solid rgba(255,255,255,0.1)"
-  },
-  compactSelect: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    fontSize: "11px",
-    cursor: "pointer",
-    outline: "none"
-  },
-  navLinks: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    flexWrap: "wrap"
-  },
-  navBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#cbd5e1",
-    fontSize: "12px",
-    cursor: "pointer",
-    padding: "4px 8px",
-    borderRadius: "4px",
-    fontWeight: "500",
-    transition: "all 0.2s"
-  },
-  loginNavBtn: {
-    background: "#0284c7",
-    color: "#fff",
-    borderRadius: "5px",
-    border: "none",
-    padding: "5px 10px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "11px",
-  },
-  logoutBtn: {
-    background: "#ef4444",
-    color: "#fff",
-    borderRadius: "5px",
-    border: "none",
-    padding: "4px 8px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "11px",
-  },
-  menuToggle: {
-    display: "none", // CSS media query se mobile par show hoga
-    background: "transparent",
-    border: "1px solid #334155",
-    color: "#fff",
-    fontSize: "18px",
-    padding: "4px 8px",
-    borderRadius: "6px",
-    cursor: "pointer"
-  },
-  mobileMenu: {
-    display: "flex",
-    flexDirection: "column",
-    background: "#1e293b",
-    padding: "10px",
-    borderRadius: "8px",
-    gap: "6px",
-    marginTop: "6px",
-    border: "1px solid #334155",
-    width: "100%"
-  },
-  mobileMenuBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    textAlign: "left",
-    padding: "8px 10px",
-    fontSize: "13px",
-    borderRadius: "4px",
-    cursor: "pointer"
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0, 0, 0, 0.8)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 2000,
-  },
-  modalCard: {
-    background: "#1e293b",
-    color: "#fff",
-    padding: "24px",
-    borderRadius: "12px",
-    width: "90%",
-    maxWidth: "380px",
-    boxShadow: "0 15px 30px rgba(0,0,0,0.5)",
-    border: "1px solid #334155",
-    boxSizing: "border-box",
-  },
-  closeBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#94a3b8",
-    fontSize: "18px",
-    cursor: "pointer",
-  },
-  label: {
-    display: "block",
-    fontSize: "12px",
-    marginBottom: "5px",
-    color: "#cbd5e1",
-    fontWeight: "600",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: "6px",
-    border: "1px solid #475569",
-    background: "#0f172a",
-    color: "#fff",
-    fontSize: "14px",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  submitBtn: {
-    width: "100%",
-    background: "#0284c7",
-    color: "#fff",
-    border: "none",
-    padding: "11px",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  switchTextBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#38bdf8",
-    fontSize: "12px",
-    cursor: "pointer",
-    textDecoration: "underline",
-  },
-  errorBox: {
-    background: "#7f1d1d",
-    color: "#fca5a5",
-    padding: "9px",
-    borderRadius: "6px",
-    marginBottom: "12px",
-    fontSize: "12px",
-  },
-  successBox: {
-    background: "#14532d",
-    color: "#86efac",
-    padding: "9px",
-    borderRadius: "6px",
-    marginBottom: "12px",
-    fontSize: "12px",
-  }
+// Complete responsive navigation & component inline styles helper
+const getResponsiveNavStyles = (isMobile, isTablet) => {
+  return {
+    navbar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "10px 16px",
+      background: "#1e293b",
+      borderBottom: "1px solid #334155",
+      position: "sticky",
+      top: 0,
+      zIndex: 1000,
+    },
+    navLeftGroup: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+    },
+    brand: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      cursor: "pointer",
+      fontWeight: "800",
+      fontSize: "18px",
+      color: "#38bdf8",
+    },
+    brandMark: {
+      background: "#0284c7",
+      color: "#fff",
+      width: "28px",
+      height: "28px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "6px",
+      fontSize: "14px",
+    },
+    headerControls: {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+    },
+    compactPill: {
+      display: "flex",
+      alignItems: "center",
+      background: "rgba(255, 255, 255, 0.06)",
+      borderRadius: "4px",
+      padding: "2px 6px",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
+    },
+    pillIcon: {
+      fontSize: "11px",
+      marginRight: "4px",
+    },
+    compactSelect: {
+      background: "transparent",
+      border: "none",
+      color: "#fff",
+      fontSize: "11px",
+      cursor: "pointer",
+      outline: "none",
+    },
+    navLinks: {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+    },
+    navBtn: {
+      background: "transparent",
+      border: "none",
+      color: "#cbd5e1",
+      fontSize: "12px",
+      cursor: "pointer",
+      padding: "6px 10px",
+      borderRadius: "4px",
+      fontWeight: "500",
+    },
+    dropdownContainer: {
+      position: "relative",
+      display: "inline-block",
+    },
+    dropdownMenu: {
+      position: "absolute",
+      right: 0,
+      top: "100%",
+      background: "#1e293b",
+      border: "1px solid #334155",
+      borderRadius: "6px",
+      boxShadow: "0 10px 20px rgba(0,0,0,0.5)",
+      display: "flex",
+      flexDirection: "column",
+      minWidth: "160px",
+      zIndex: 1100,
+      overflow: "hidden",
+    },
+    dropdownItem: {
+      background: "transparent",
+      border: "none",
+      color: "#cbd5e1",
+      padding: "10px 14px",
+      textAlign: "left",
+      fontSize: "12px",
+      cursor: "pointer",
+      fontWeight: "500",
+      borderBottom: "1px solid rgba(255,255,255,0.05)",
+    },
+    loginNavBtn: {
+      background: "#0284c7",
+      color: "#fff",
+      borderRadius: "5px",
+      border: "none",
+      padding: "6px 12px",
+      cursor: "pointer",
+      fontWeight: "600",
+      fontSize: "11px",
+    },
+    userArea: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+    },
+    userName: {
+      fontSize: "12px",
+      color: "#38bdf8",
+      fontWeight: "600",
+    },
+    logoutBtn: {
+      background: "#ef4444",
+      color: "#fff",
+      borderRadius: "5px",
+      border: "none",
+      padding: "5px 10px",
+      cursor: "pointer",
+      fontWeight: "600",
+      fontSize: "11px",
+    },
+    menuToggle: {
+      background: "transparent",
+      border: "none",
+      color: "#fff",
+      fontSize: "22px",
+      cursor: "pointer",
+      outline: "none",
+    },
+    menuIcon: {
+      display: "inline-block",
+    },
+    mobileMenu: {
+      display: "flex",
+      flexDirection: "column",
+      background: "#1e293b",
+      padding: "16px",
+      gap: "12px",
+      borderBottom: "1px solid #334155",
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      zIndex: 1500,
+      boxShadow: "0 10px 20px rgba(0,0,0,0.4)",
+    },
+    mobileMenuHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderBottom: "1px solid #334155",
+      paddingBottom: "10px",
+    },
+    mobileMenuTitle: {
+      fontWeight: "800",
+      fontSize: "16px",
+      color: "#38bdf8",
+    },
+    mobileMenuSub: {
+      fontSize: "11px",
+      color: "#94a3b8",
+    },
+    mobileCloseBtn: {
+      background: "transparent",
+      border: "none",
+      color: "#fff",
+      fontSize: "18px",
+      cursor: "pointer",
+    },
+    mobileMenuGrid: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "8px",
+    },
+    mobileMenuBtn: {
+      background: "rgba(255, 255, 255, 0.05)",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
+      color: "#fff",
+      textAlign: "left",
+      padding: "10px",
+      fontSize: "12px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+    },
+    mobileMenuBtnFull: {
+      background: "rgba(255, 255, 255, 0.05)",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
+      color: "#fff",
+      textAlign: "left",
+      padding: "8px 10px",
+      fontSize: "12px",
+      borderRadius: "4px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      width: "100%",
+    },
+    mobileSettings: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      background: "rgba(0, 0, 0, 0.2)",
+      padding: "10px",
+      borderRadius: "6px",
+    },
+    mobileSettingItem: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      color: "#cbd5e1",
+      fontSize: "12px",
+    },
+    mobileSelect: {
+      background: "#0f172a",
+      border: "1px solid #475569",
+      color: "#fff",
+      borderRadius: "4px",
+      padding: "4px 8px",
+      fontSize: "12px",
+      outline: "none",
+    },
+    mobileLoginBtn: {
+      background: "#0284c7",
+      color: "#fff",
+      border: "none",
+      padding: "10px",
+      borderRadius: "6px",
+      fontWeight: "bold",
+      fontSize: "13px",
+      cursor: "pointer",
+      textAlign: "center",
+    },
+    mobileLogoutBtn: {
+      background: "#ef4444",
+      color: "#fff",
+      border: "none",
+      padding: "10px",
+      borderRadius: "6px",
+      fontWeight: "bold",
+      fontSize: "13px",
+      cursor: "pointer",
+      textAlign: "center",
+    },
+    modalOverlay: {
+      position: "fixed",
+      top: 0, left: 0, right: 0, bottom: 0,
+      background: "rgba(0, 0, 0, 0.8)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 2000,
+    },
+    modalCard: {
+      background: "#1e293b",
+      color: "#fff",
+      padding: "24px",
+      borderRadius: "12px",
+      width: "90%",
+      maxWidth: "380px",
+      boxShadow: "0 15px 30px rgba(0,0,0,0.5)",
+      border: "1px solid #334155",
+      boxSizing: "border-box",
+    },
+    closeBtn: {
+      background: "transparent",
+      border: "none",
+      color: "#94a3b8",
+      fontSize: "18px",
+      cursor: "pointer",
+    },
+    label: {
+      display: "block",
+      fontSize: "12px",
+      marginBottom: "5px",
+      color: "#cbd5e1",
+      fontWeight: "600",
+    },
+    input: {
+      width: "100%",
+      padding: "10px 12px",
+      borderRadius: "6px",
+      border: "1px solid #475569",
+      background: "#0f172a",
+      color: "#fff",
+      fontSize: "14px",
+      outline: "none",
+      boxSizing: "border-box",
+    },
+    submitBtn: {
+      width: "100%",
+      background: "#0284c7",
+      color: "#fff",
+      border: "none",
+      padding: "11px",
+      borderRadius: "6px",
+      fontWeight: "bold",
+      cursor: "pointer",
+      fontSize: "14px",
+    },
+    switchTextBtn: {
+      background: "transparent",
+      border: "none",
+      color: "#38bdf8",
+      fontSize: "12px",
+      cursor: "pointer",
+      textDecoration: "underline",
+    },
+    errorBox: {
+      background: "#7f1d1d",
+      color: "#fca5a5",
+      padding: "9px",
+      borderRadius: "6px",
+      marginBottom: "12px",
+      fontSize: "12px",
+    },
+    successBox: {
+      background: "#14532d",
+      color: "#86efac",
+      padding: "9px",
+      borderRadius: "6px",
+      marginBottom: "12px",
+      fontSize: "12px",
+    }
+  };
 };
 
 export default function App() {

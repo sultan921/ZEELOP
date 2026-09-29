@@ -1,82 +1,40 @@
-/* ==========================================
-   1. GLOBAL RESET & BASE STYLES
-   ========================================== */
-* {
+/* --- Global Styles --- */
+body {
   margin: 0;
   padding: 0;
+  background-color: #0f172a;
+  color: #fff;
+  font-family: sans-serif;
   box-sizing: border-box;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-body {
-  background-color: #080d1a;
-  color: #f1f5f9;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* ==========================================
-   2. RTL SUPPORT (URDU LANGUAGE)
-   ========================================== */
-[dir="rtl"] {
-  text-align: right;
-}
-
-[dir="rtl"] .nav-left-group {
-  flex-direction: row;
-}
-
-[dir="rtl"] .nav-links {
-  margin-right: auto;
-  margin-left: 0;
-}
-
-/* ==========================================
-   3. NAVBAR & COMPACT HEADER CONTROLS
-   ========================================== */
+/* --- Navbar Container --- */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 24px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
   position: sticky;
   top: 0;
-  z-index: 1000;
+  zIndex: 1000;
 }
 
 .nav-left-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
-.brand {
+.brand-title {
   cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.brand span {
-  font-size: 22px;
   font-weight: 800;
-  letter-spacing: 1.5px;
-  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-transform: uppercase;
+  font-size: 18px;
+  color: #38bdf8;
 }
 
-/* Header Controls (Pills) */
+/* --- Header Controls (Lang & Currency) --- */
 .header-controls {
   display: flex;
   align-items: center;
@@ -86,488 +44,137 @@ body {
 .compact-pill {
   display: flex;
   align-items: center;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 2px 8px;
-  backdrop-filter: blur(8px);
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.compact-pill:hover {
-  border-color: #38bdf8;
-  background: rgba(30, 41, 59, 0.9);
-}
-
-.pill-icon {
-  font-size: 11px;
-  margin-right: 3px;
-  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .compact-select {
   background: transparent;
-  color: #38bdf8;
   border: none;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  outline: none;
+  color: #fff;
+  fontSize: 11px;
   cursor: pointer;
-  padding: 2px 0;
+  outline: none;
 }
 
 .compact-select option {
-  background: #0f172a;
-  color: #f1f5f9;
+  background: #1e293b;
+  color: #fff;
 }
 
-/* Navigation Links */
-.nav-links {
+/* --- Desktop Nav Links --- */
+.desktop-nav-links {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 6px;
 }
 
-.nav-links button {
+.nav-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 12px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
-.nav-links button:hover {
-  color: #ffffff;
+.nav-btn:hover {
   background: rgba(255, 255, 255, 0.05);
+  color: #fff;
 }
 
-.nav-links button.active {
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+.nav-btn.active {
+  background: #0284c7;
+  color: #fff;
 }
 
-.menu-toggle {
-  display: none;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #f8fafc;
-  font-size: 18px;
+.login-nav-btn {
+  background: #0284c7;
+  color: #fff;
+  border-radius: 5px;
+  border: none;
   padding: 6px 12px;
-  border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
 }
 
+.logout-btn {
+  background: #ef4444;
+  color: #fff;
+  border-radius: 5px;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* --- Hamburger Menu Toggle Button (Default Hidden on PC) --- */
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  outline: none;
+}
+
+/* --- Mobile Menu Dropdown --- */
 .mobile-menu {
   display: flex;
   flex-direction: column;
-  background: #0f172a;
-  border-bottom: 1px solid #1e293b;
-  padding: 12px 20px;
-  gap: 8px;
-}
-
-.mobile-menu button {
   background: #1e293b;
-  border: 1px solid #334155;
-  color: #f1f5f9;
   padding: 12px;
-  text-align: left;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
+  gap: 6px;
+  border-bottom: 1px solid #334155;
+  animation: fadeIn 0.2s ease-in-out;
 }
 
-/* ==========================================
-   4. HERO SECTION & SEARCH BAR
-   ========================================== */
-.hero {
-  padding: 60px 20px 40px;
-  text-align: center;
-  background: radial-gradient(circle at top center, rgba(56, 189, 248, 0.12) 0%, rgba(8, 13, 26, 0) 70%);
-}
-
-.hero-content {
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.small-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #38bdf8;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-
-.hero h1 {
-  font-size: 42px;
-  font-weight: 800;
-  line-height: 1.2;
-  color: #ffffff;
-  margin-bottom: 14px;
-}
-
-.hero h1 span {
-  color: #38bdf8;
-}
-
-.description {
-  color: #94a3b8;
-  font-size: 15px;
-  margin-bottom: 28px;
-  line-height: 1.6;
-}
-
-.search-box {
-  display: flex;
-  max-width: 520px;
-  margin: 0 auto;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  padding: 4px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
-}
-
-.search-box input {
-  flex: 1;
+.mobile-menu-btn {
   background: transparent;
   border: none;
-  padding: 12px 16px;
   color: #fff;
-  font-size: 14px;
-  outline: none;
-}
-
-.search-box button {
-  background: #38bdf8;
-  border: none;
-  color: #0f172a;
-  padding: 0 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.search-box button:hover {
-  background: #7dd3fc;
-}
-
-.search-box button:active {
-  transform: scale(0.96);
-}
-
-/* ==========================================
-   5. BALANCE SECTION & CARDS
-   ========================================== */
-.balance-section {
-  padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.balance-card {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 16px;
-  padding: 24px 30px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-}
-
-.card-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  letter-spacing: 1.5px;
-  margin-bottom: 6px;
-}
-
-.balance-card h2 {
-  font-size: 32px;
-  color: #fbbf24;
-  font-weight: 800;
-}
-
-.balance-card .usd {
-  color: #4ade80;
-  font-size: 15px;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-.coin-icon {
-  font-size: 48px;
-}
-
-/* ==========================================
-   6. ACTION CARDS & GRID
-   ========================================== */
-.section {
-  padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-
-.action-card {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 16px;
-  padding: 24px;
-  text-align: center;
-  transition: transform 0.2s, border-color 0.2s;
-}
-
-.action-card:hover {
-  transform: translateY(-4px);
-  border-color: #38bdf8;
-}
-
-.card-icon {
-  font-size: 36px;
-  margin-bottom: 12px;
-}
-
-.action-card h3 {
-  font-size: 18px;
-  color: #fff;
-  margin-bottom: 8px;
-}
-
-.action-card p {
+  text-align: left;
+  padding: 10px;
   font-size: 13px;
-  color: #94a3b8;
-  margin-bottom: 20px;
-  line-height: 1.5;
-}
-
-.primary-button {
-  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
-  color: #ffffff;
-  border: none;
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 700;
-  border-radius: 10px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
 }
 
-.primary-button:hover {
-  opacity: 0.9;
+.mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.primary-button:active {
-  transform: scale(0.98);
-}
-
-/* ==========================================
-   7. DROPDOWN & INPUT OVERLAP FIXES (FOR WALLET)
-   ========================================== */
-select {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-  border: 1px solid #334155 !important;
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-  width: 100%;
-  appearance: auto;
-}
-
-select option {
-  background-color: #0f172a !important;
-  color: #ffffff !important;
-  padding: 12px;
-}
-
-select option:hover,
-select option:focus,
-select option:active,
-select option:checked {
-  background-color: #1e293b !important;
-  color: #38bdf8 !important;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"] {
-  background-color: #0f172a;
-  color: #ffffff;
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-input:focus,
-select:focus {
-  border-color: #38bdf8 !important;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.form-group label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #94a3b8;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-}
-
-.withdraw-section, 
-.payment-card-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-/* ==========================================
-   8. TOAST NOTIFICATION
-   ========================================== */
-.toast-notification {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 14px 22px;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  z-index: 2000;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.toast-notification.success {
-  background: #065f46;
-  color: #34d399;
-  border: 1px solid #10b981;
-}
-
-.toast-notification.error {
-  background: #881337;
-  color: #fecdd3;
-  border: 1px solid #f43f5e;
-}
-
-.toast-notification.info {
-  background: #1e3a8a;
-  color: #93c5fd;
-  border: 1px solid #3b82f6;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* ==========================================
-   9. FOOTER
-   ========================================== */
-footer {
-  margin-top: auto;
-  padding: 30px 20px;
-  text-align: center;
-  background: #070a14;
-  border-top: 1px solid #1e293b;
-  color: #64748b;
-}
-
-.footer-brand {
-  font-size: 18px;
-  color: #f8fafc;
-  margin-bottom: 6px;
-}
-
-footer p {
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-footer small {
-  font-size: 11px;
-}
-
-/* ==========================================
-   10. RESPONSIVE DESIGN
-   ========================================== */
-@media (max-width: 768px) {
-  .nav-links {
-    display: none;
-  }
-
-  .menu-toggle {
-    display: block;
-  }
-
-  .hero h1 {
-    font-size: 30px;
-  }
-
-  .balance-card {
-    flex-direction: column;
-    text-align: center;
-    gap: 12px;
-  }
-
-  .toast-notification {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    text-align: center;
-  }
-}
-
-@media (max-width: 768px) {
+/* --- Responsive Media Queries --- */
+@media screen and (max-width: 900px) {
   .desktop-nav-links {
-    display: none !important;
+    display: none !important; /* PC links gayab mobile par */
+  }
+  .mobile-menu-toggle {
+    display: block !important; /* Hamburger sirf mobile par dikhega */
   }
 }
-@media (min-width: 769px) {
-  .menu-toggle {
-    display: none !important;
+
+@media screen and (min-width: 901px) {
+  .desktop-nav-links {
+    display: flex !important; /* PC par links nazar aayenge */
   }
+  .mobile-menu-toggle {
+    display: none !important; /* PC par hamburger gayab rahega */
+  }
+  .mobile-menu {
+    display: none !important; /* PC par mobile dropdown khul hi nahi sakta */
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
