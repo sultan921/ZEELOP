@@ -661,6 +661,30 @@ function PoolGame({
 
   const [turnSeconds,setTurnSeconds]=useState(40);
 
+  // Mobile immersive Pool mode. Fullscreen/orientation lock may require the first touch on some browsers.
+  useEffect(() => {
+    const html=document.documentElement, body=document.body;
+    const previous={htmlOverflow:html.style.overflow,bodyOverflow:body.style.overflow,bodyTouchAction:body.style.touchAction,bodyOverscroll:body.style.overscrollBehavior};
+    html.classList.add("pool-game-active");body.classList.add("pool-game-active");
+    html.style.overflow="hidden";body.style.overflow="hidden";body.style.touchAction="none";body.style.overscrollBehavior="none";
+    const enterImmersive=async()=>{
+      if(!window.matchMedia("(max-width: 900px)").matches)return;
+      const root=canvasRef.current?.closest(".professional-pool");
+      try{if(!document.fullscreenElement&&root?.requestFullscreen)await root.requestFullscreen({navigationUI:"hide"});}catch{}
+      try{if(screen.orientation?.lock)await screen.orientation.lock("landscape");}catch{}
+    };
+    const unlockOnGesture=()=>{enterImmersive();};
+    window.addEventListener("pointerdown",unlockOnGesture,{once:true,passive:true});
+    enterImmersive();
+    return()=>{
+      window.removeEventListener("pointerdown",unlockOnGesture);
+      html.classList.remove("pool-game-active");body.classList.remove("pool-game-active");
+      html.style.overflow=previous.htmlOverflow;body.style.overflow=previous.bodyOverflow;body.style.touchAction=previous.bodyTouchAction;body.style.overscrollBehavior=previous.bodyOverscroll;
+      try{screen.orientation?.unlock?.();}catch{}
+      try{if(document.fullscreenElement)document.exitFullscreen();}catch{}
+    };
+  }, []);
+
   useEffect(() => {
     groupsRef.current = groups;
   }, [groups]);
@@ -1924,15 +1948,19 @@ function PoolGame({
     try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
   },[getCanvasPoint,placeCueBall]);
   const handlePointerMove=useCallback(event=>{
+    if(!dragRef.current)return;
+    event.preventDefault();
     const point=getCanvasPoint(event);mousePointRef.current=point;
     if(movingRef.current||turnRef.current!=='user'||ballInHandRef.current)return;
     const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);if(!cue)return;
-    const drag=dragRef.current;
-    if(!drag)return;
+    const drag=dragRef.current;drag.moved=true;
     if(drag.nearCue){
       const distance=Math.hypot(point.x-cue.x,point.y-cue.y);
-      if(distance>8){drag.moved=true;cueAngleRef.current=Math.atan2(cue.y-point.y,cue.x-point.x);powerRef.current=clamp(Math.round(distance/1.7),5,100);setPower(powerRef.current);}
-    }else{cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);}
+      if(distance>8){cueAngleRef.current=Math.atan2(cue.y-point.y,cue.x-point.x);powerRef.current=clamp(Math.round(distance/1.7),5,100);setPower(powerRef.current);}
+    }else{
+      // One-finger aiming: slide anywhere on the table to rotate the cue.
+      cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
+    }
   },[getCanvasPoint]);
   const handlePointerUp=useCallback(event=>{
     const drag=dragRef.current;dragRef.current=null;aimingRef.current=false;
@@ -2017,7 +2045,7 @@ function PoolGame({
           <div className="pool-contender-details"><div className="pool-nameplate"><span>{user?.name||'You'}</span><small>{winner?'Finished':turn==='user'?'Your turn':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Your remaining balls">{remainingFor('user')}</div></div>
           <div className="timed-avatar"><PlayerAvatar user={user} name={user?.name||'You'} color="#66ec5b" active={turn==='user'}/>{turn==='user'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
         </div>
-        <div className="pool-match-prize"><svg viewBox="0 0 48 32" aria-hidden="true"><g fill="#facc15" stroke="#b77913" strokeWidth="1.5"><ellipse cx="18" cy="22" rx="10" ry="4"/><ellipse cx="18" cy="17" rx="10" ry="4"/><ellipse cx="18" cy="12" rx="10" ry="4"/><ellipse cx="31" cy="23" rx="9" ry="4"/><ellipse cx="31" cy="18" rx="9" ry="4"/></g></svg><strong>{betAmount*2}</strong><small>PRIZE COINS</small></div>
+        <div className="pool-match-prize"><svg viewBox="0 0 48 32" aria-hidden="true"><g fill="#facc15" stroke="#b77913" strokeWidth="1.5"><ellipse cx="18" cy="22" rx="10" ry="4"/><ellipse cx="18" cy="17" rx="10" ry="4"/><ellipse cx="18" cy="12" rx="10" ry="4"/><ellipse cx="31" cy="23" rx="9" ry="4"/><ellipse cx="31" cy="18" rx="9" ry="4"/></g></svg><strong>{Math.floor(betAmount*2*0.90)}</strong><small>WINNER AFTER 10% FEE</small></div>
         <div className={`pool-contender pool-contender-ai ${turn==='ai'?'contender-active':''}`}>
           <div className="timed-avatar"><PlayerAvatar name="Computer" color="#67d8ff" active={turn==='ai'}/>{turn==='ai'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
           <div className="pool-contender-details"><div className="pool-nameplate"><span>Computer</span><small>{winner?'Finished':turn==='ai'?'Playing':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Computer remaining balls">{remainingFor('ai')}</div></div>
@@ -2459,7 +2487,9 @@ export default function SamatkarGamingArena({
     }) => {
       if(settledMatchRef.current)return;
       settledMatchRef.current=true;
-      const prize=matchBet*(gameName === "ludo" ? clamp(prizeMultiplier,2,4) : 2);
+      const grossPrize=matchBet*(gameName === "ludo" ? clamp(prizeMultiplier,2,4) : 2);
+      const platformFee=Math.floor(grossPrize*0.10);
+      const prize=grossPrize-platformFee;
       if (
         winner === "user"
       ) {
@@ -2471,7 +2501,7 @@ export default function SamatkarGamingArena({
         ) {
           addCoins(
             prize,
-            `🏆 You won ${prize} coins in ${gameName === "ludo" ? "Ludo" : "8 Ball Pool"}!`
+            `🏆 You won ${prize} coins after 10% platform fee (${platformFee} coins).`
           );
         }
 
@@ -4810,6 +4840,16 @@ const POOL_PRO_STYLES=`
 @media(max-width:760px){.professional-pool.arena-game-page {padding:8px}.pool-hud {grid-template-columns:34px minmax(0,1fr) 55px minmax(0,1fr) 30px;gap:5px;padding:2px 0 8px}.pool-contender {gap:5px}.pool-contender .player-avatar {width:42px;height:48px;border-radius:10px;border-width:2px;font-size:18px}.pool-nameplate {font-size:10px;padding:3px 4px;gap:2px}.pool-nameplate small {display:none}.pool-ball-row {gap:1px}.pool-ball-badge {width:15px;height:15px}.pool-ball-badge i {font-size:7px;width:9px;height:9px}.pool-match-prize {min-height:57px;border-radius:11px;padding:3px}.pool-match-prize svg {height:20px;width:32px}.pool-match-prize strong {font-size:17px}.pool-match-prize small {font-size:5px;letter-spacing:.2px}.pool-menu-button,.pool-hud>.pool-icon-button {width:30px;height:34px;padding:5px;border-width:1px;border-radius:9px}.pool-topline {padding:0 40px 7px;font-size:8px}.pool-topline strong {font-size:10px}.pool-playfield {grid-template-columns:33px minmax(0,1fr) 30px;gap:5px;width:100%}.pool-power-column {padding:7px 3px 5px;gap:5px;border-radius:10px}.pool-power-column label {font-size:6px;letter-spacing:0}.pool-power-column>strong {font-size:9px}.cue-pull-rail {width:25px;min-height:55px}.pool-power-column>small{font-size:5px}.pool-pocket-rack {padding:5px 2px;gap:4px;border-radius:12px}.rack-label {font-size:5px;letter-spacing:0}.rack-channel {padding:3px 0;gap:1px}.rack-channel .pool-ball-badge {width:17px;height:17px}.rack-channel .pool-ball-badge i {width:10px;height:10px;font-size:7px}.pool-pocket-rack .pool-icon-button {width:21px;height:22px;padding:1px}.pool-pro-canvas {border-radius:13px}.pool-shot-footer {padding:8px 10px;font-size:10px;gap:6px}.pool-shot-footer button {font-size:9px}.pool-rotate-hint {display:block}.ludo-setup-modal {padding:22px}.player-count-options strong {font-size:14px}}
 @media(max-width:500px) and (orientation:portrait){.pool-hud {grid-template-columns:30px minmax(0,1fr) 48px minmax(0,1fr);gap:5px}.pool-hud>.pool-icon-button {display:none}.pool-contender-user,.pool-contender-ai {flex-direction:column;gap:5px}.pool-contender-user .pool-contender-details {order:2}.pool-contender .player-avatar {width:49px;height:53px}.pool-contender-details {width:100%}.pool-ball-row {justify-content:center}.pool-topline {padding:3px 2px 8px}.pool-playfield {grid-template-columns:30px minmax(0,1fr) 27px;gap:3px}.pool-shot-footer {flex-wrap:wrap}.pool-rotate-hint {width:100%;text-align:center}.pool-pocket-rack .rack-channel .pool-ball-badge {width:14px;height:14px}.rack-channel .pool-ball-badge i {width:8px;height:8px;font-size:6px}}
 @media(max-height:520px) and (orientation:landscape){.professional-pool.arena-game-page {padding:5px}.pool-hud {padding:0 3px 4px}.pool-contender .player-avatar {width:43px;height:46px}.pool-match-prize {min-height:48px}.pool-match-prize svg {height:19px}.pool-topline {padding-bottom:4px}.pool-playfield {width:min(100%,calc((100dvh - 148px)*1.8 + 85px))}.pool-shot-footer {margin-top:6px;padding:5px 10px}.pool-power-column {padding-top:7px;gap:5px}.pool-power-track {min-height:45px}}
+
+/* Immersive mobile Pool: no page scroll and hide banner/ad containers while a match is open. */
+html.pool-game-active,body.pool-game-active{overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important}
+body.pool-game-active [class*="ad-container"],body.pool-game-active [class*="banner-ad"],body.pool-game-active [id*="adsterra"],body.pool-game-active iframe[src*="adsterra"],body.pool-game-active iframe[src*="profitabledisplay"]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+.professional-pool{position:fixed!important;inset:0!important;z-index:99990!important;width:100vw!important;height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important}
+.professional-pool .pool-game-shell{width:100%;height:100%;max-width:none;display:flex;flex-direction:column;overflow:hidden}
+.professional-pool .pool-playfield{flex:1;min-height:0}
+.professional-pool .pool-table-stage,.professional-pool .pool-pro-canvas{touch-action:none!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important}
+@media(max-width:900px) and (orientation:landscape){.professional-pool.arena-game-page{padding:4px!important}.professional-pool .pool-hud,.professional-pool .pool-topline{flex:0 0 auto}.professional-pool .pool-playfield{width:100%!important;max-width:none!important;grid-template-columns:38px minmax(0,1fr) 32px!important;gap:5px!important}.professional-pool .pool-table-stage{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}.professional-pool .pool-pro-canvas{width:auto!important;height:100%!important;max-width:100%!important;max-height:calc(100dvh - 122px)!important;aspect-ratio:9/5}.professional-pool .pool-shot-footer{display:none!important}}
+@media(max-width:900px) and (orientation:portrait){.professional-pool:after{content:"↻ Mobile ko side karein — game landscape me chalega";position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:30px;text-align:center;background:#050b14;color:#fff;font:900 20px/1.5 system-ui}}
 
 .online-match-tools{margin:14px 0;padding:12px;border:1px solid #466252;border-radius:14px;background:#081720}.online-action-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.online-action-tabs button{padding:10px 6px;border-radius:10px;border:1px solid #456071;background:#102334;color:#d9efff;font-weight:800;cursor:pointer;font-size:11px}.online-action-tabs button.selected{border-color:#78e99a;background:#19432e;box-shadow:0 0 0 1px #78e99a44}.online-match-tools .online-room-label{margin:0}.nightmare-ai-badge{font-size:9px;color:#ffcf55;font-weight:900;letter-spacing:.8px}
 `;
