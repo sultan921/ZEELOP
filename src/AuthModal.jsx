@@ -1,22 +1,24 @@
 import React, { useState } from "react";
 
-// 🌐 UPDATED LIVE BACKEND URL
+// 🌐 LIVE BACKEND URL
 const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app";
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
-  const [isLoginMode, setIsLoginMode] = useState(false); // false = Signup, true = Login
+  const [isLoginMode, setIsLoginMode] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Eye toggle state
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  // 🔗 Sign Up / Register Handler via Backend API
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setErrorMsg("");
     setSuccessMsg("");
 
@@ -24,6 +26,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       setErrorMsg("⚠️ Meherbani karke saari fields bharein!");
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
@@ -43,26 +47,27 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         return;
       }
 
-      // Save user locally for session persistence
       localStorage.setItem("currentUser", JSON.stringify(data.user));
       if (typeof data.user.coins === "number") {
         localStorage.setItem("goovoCoins", data.user.coins);
       }
 
-      setSuccessMsg("✅ Account permanently database me register ho gaya!");
+      setSuccessMsg("✅ Account successfully created!");
       setTimeout(() => {
         onLoginSuccess(data.user);
         onClose();
-      }, 1500);
-
+      }, 1200);
     } catch (err) {
-      setErrorMsg("❌ Backend server se connection nahi ho saka! Check karein.");
+      setErrorMsg("❌ Server se connection nahi ho saka. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // 🔗 Login Handler via Backend API
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setErrorMsg("");
     setSuccessMsg("");
 
@@ -70,6 +75,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       setErrorMsg("⚠️ Phone number aur password dono likhein!");
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
@@ -88,109 +95,168 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         return;
       }
 
-      // Save user locally for session persistence
       localStorage.setItem("currentUser", JSON.stringify(data.user));
       if (typeof data.user.coins === "number") {
         localStorage.setItem("goovoCoins", data.user.coins);
       }
 
-      setSuccessMsg("✅ Login Successful from Database!");
+      setSuccessMsg("✅ Login successful!");
       setTimeout(() => {
         onLoginSuccess(data.user);
         onClose();
-      }, 1200);
-
+      }, 1000);
     } catch (err) {
-      setErrorMsg("❌ Backend server se connection nahi ho saka!");
+      setErrorMsg("❌ Server se connection nahi ho saka. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleModeSwitch = () => {
+    if (isSubmitting) return;
+    setIsLoginMode(!isLoginMode);
+    setErrorMsg("");
+    setSuccessMsg("");
   };
 
   return (
     <div style={modalStyles.overlay}>
       <div style={modalStyles.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-          <h3 style={{ margin: 0, color: "#fff" }}>
-            {isLoginMode ? "🔑 Database Login" : "📝 Permanent Sign Up"}
-          </h3>
-          <button onClick={onClose} style={modalStyles.closeBtn}>✕</button>
-        </div>
+        <div style={modalStyles.header}>
+          <div>
+            <div style={modalStyles.badge}>
+              {isLoginMode ? "🔐 SECURE ACCESS" : "✨ CREATE ACCOUNT"}
+            </div>
+            <h3 style={modalStyles.title}>
+              {isLoginMode ? "Welcome Back" : "Join Us"}
+            </h3>
+            <p style={modalStyles.subtitle}>
+              {isLoginMode
+                ? "Apne account mein securely login karein."
+                : "Apna account create karein aur shuru karein."}
+            </p>
+          </div>
 
-        <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "20px" }}>
-          {isLoginMode 
-            ? "Apne registered phone number aur password se database se login karein." 
-            : "Naya account direct backend database me save hoga."}
-        </p>
+          <button
+            onClick={onClose}
+            style={modalStyles.closeBtn}
+            disabled={isSubmitting}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
 
         <form onSubmit={isLoginMode ? handleLogin : handleRegister}>
           {!isLoginMode && (
-            <div style={{ marginBottom: "12px" }}>
-              <label style={modalStyles.label}>Aapka Naam (Name)</label>
-              <input
-                type="text"
-                placeholder="Misal: Amir"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={modalStyles.input}
-              />
+            <div style={modalStyles.fieldGroup}>
+              <label style={modalStyles.label}>Aapka Naam</label>
+              <div style={modalStyles.inputWrap}>
+                <span style={modalStyles.inputIcon}>👤</span>
+                <input
+                  type="text"
+                  placeholder="Misal: Amir"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={modalStyles.input}
+                  disabled={isSubmitting}
+                  autoComplete="name"
+                />
+              </div>
             </div>
           )}
 
-          <div style={{ marginBottom: "12px" }}>
+          <div style={modalStyles.fieldGroup}>
             <label style={modalStyles.label}>Phone Number</label>
-            <input
-              type="text"
-              placeholder="Misal: 03001234567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              style={modalStyles.input}
-            />
+            <div style={modalStyles.inputWrap}>
+              <span style={modalStyles.inputIcon}>📱</span>
+              <input
+                type="text"
+                placeholder="03001234567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                style={modalStyles.input}
+                disabled={isSubmitting}
+                autoComplete="tel"
+              />
+            </div>
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
+          <div style={modalStyles.fieldGroup}>
             <label style={modalStyles.label}>Password</label>
-            <div style={{ position: "relative" }}>
+            <div style={modalStyles.inputWrap}>
+              <span style={modalStyles.inputIcon}>🔒</span>
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ ...modalStyles.input, paddingRight: "40px" }}
+                style={modalStyles.input}
+                disabled={isSubmitting}
+                autoComplete={isLoginMode ? "current-password" : "new-password"}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: "absolute",
-                  right: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#94a3b8",
-                  fontSize: "16px"
-                }}
+                style={modalStyles.eyeBtn}
+                disabled={isSubmitting}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? "👁️‍🗨️" : "👁️"}
+                {showPassword ? "🙈" : "👁️"}
               </button>
             </div>
           </div>
 
-          {errorMsg && <div style={modalStyles.errorBox}>{errorMsg}</div>}
-          {successMsg && <div style={modalStyles.successBox}>{successMsg}</div>}
+          {errorMsg && (
+            <div style={modalStyles.errorBox}>
+              <span style={modalStyles.messageIcon}>!</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-          <button type="submit" style={modalStyles.submitBtn}>
-            {isLoginMode ? "Login via Database" : "Register Permanently"}
+          {successMsg && (
+            <div style={modalStyles.successBox}>
+              <span style={modalStyles.messageIcon}>✓</span>
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              ...modalStyles.submitBtn,
+              ...(isSubmitting ? modalStyles.submitBtnLoading : {})
+            }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <span style={modalStyles.loadingContent}>
+                <span style={modalStyles.spinner}></span>
+                <span>{isLoginMode ? "Signing in..." : "Creating account..."}</span>
+              </span>
+            ) : (
+              <span>{isLoginMode ? "🔐 Login" : "✨ Create Account"}</span>
+            )}
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "15px" }}>
-          <button 
+        <div style={modalStyles.divider}>
+          <span style={modalStyles.dividerLine}></span>
+          <span style={modalStyles.dividerText}>OR</span>
+          <span style={modalStyles.dividerLine}></span>
+        </div>
+
+        <div style={modalStyles.switchArea}>
+          <span style={modalStyles.switchLabel}>
+            {isLoginMode ? "Account nahi hai?" : "Pehle se account hai?"}
+          </span>
+          <button
             type="button"
-            onClick={() => { setIsLoginMode(!isLoginMode); setErrorMsg(""); setSuccessMsg(""); }}
+            onClick={handleModeSwitch}
             style={modalStyles.switchTextBtn}
+            disabled={isSubmitting}
           >
-            {isLoginMode ? "Account nahi hai? Sign Up karein" : "Pehle se account hai? Login karein"}
+            {isLoginMode ? "Create Account" : "Login"}
           </button>
         </div>
       </div>
@@ -198,85 +264,268 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   );
 }
 
-// Inline Styles Object
 const modalStyles = {
   overlay: {
     position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0, 0, 0, 0.8)",
+    inset: 0,
+    background:
+      "radial-gradient(circle at 50% 0%, rgba(14,165,233,0.14), transparent 34%), rgba(2,6,23,0.86)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    padding: "18px",
+    boxSizing: "border-box",
     zIndex: 2000,
+    backdropFilter: "blur(7px)",
+    WebkitBackdropFilter: "blur(7px)"
   },
   card: {
-    background: "#1e293b",
+    width: "100%",
+    maxWidth: "430px",
+    maxHeight: "calc(100vh - 36px)",
+    overflowY: "auto",
+    boxSizing: "border-box",
+    background:
+      "linear-gradient(145deg, rgba(30,41,59,0.98), rgba(15,23,42,0.99))",
     color: "#fff",
-    padding: "25px",
-    borderRadius: "12px",
-    width: "90%",
-    maxWidth: "400px",
-    boxShadow: "0 15px 30px rgba(0,0,0,0.5)",
-    border: "1px solid #334155",
+    padding: "24px",
+    borderRadius: "22px",
+    border: "1px solid rgba(125,211,252,0.16)",
+    boxShadow:
+      "0 30px 80px rgba(0,0,0,0.55), 0 0 45px rgba(14,165,233,0.08)",
+    animation: "authModalIn 0.28s ease-out"
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "14px",
+    marginBottom: "22px"
+  },
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 9px",
+    borderRadius: "999px",
+    background: "rgba(14,165,233,0.10)",
+    border: "1px solid rgba(56,189,248,0.18)",
+    color: "#7dd3fc",
+    fontSize: "9px",
+    fontWeight: "800",
+    letterSpacing: "1px",
+    marginBottom: "8px"
+  },
+  title: {
+    margin: 0,
+    color: "#fff",
+    fontSize: "25px",
+    lineHeight: 1.15,
+    fontWeight: "900",
+    letterSpacing: "-0.4px"
+  },
+  subtitle: {
+    margin: "7px 0 0",
+    color: "#94a3b8",
+    fontSize: "12px",
+    lineHeight: 1.5
   },
   closeBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#94a3b8",
-    fontSize: "18px",
-    cursor: "pointer",
+    flexShrink: 0,
+    width: "36px",
+    height: "36px",
+    borderRadius: "11px",
+    background: "rgba(255,255,255,0.045)",
+    border: "1px solid rgba(148,163,184,0.15)",
+    color: "#cbd5e1",
+    fontSize: "15px",
+    cursor: "pointer"
+  },
+  fieldGroup: {
+    marginBottom: "15px"
   },
   label: {
     display: "block",
-    fontSize: "12px",
-    marginBottom: "5px",
+    fontSize: "11px",
+    marginBottom: "7px",
     color: "#cbd5e1",
-    fontWeight: "600",
+    fontWeight: "750"
+  },
+  inputWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    boxSizing: "border-box",
+    borderRadius: "12px",
+    border: "1px solid #334155",
+    background: "rgba(2,6,23,0.62)"
+  },
+  inputIcon: {
+    flexShrink: 0,
+    width: "40px",
+    textAlign: "center",
+    fontSize: "14px",
+    opacity: 0.85
   },
   input: {
     width: "100%",
-    padding: "10px 12px",
-    borderRadius: "6px",
-    border: "1px solid #475569",
-    background: "#0f172a",
+    minWidth: 0,
+    padding: "12px 42px 12px 0",
+    border: "none",
+    background: "transparent",
     color: "#fff",
     fontSize: "14px",
     outline: "none",
-    boxSizing: "border-box",
+    boxSizing: "border-box"
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "8px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: "32px",
+    height: "32px",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: "#94a3b8",
+    fontSize: "15px",
+    borderRadius: "8px"
+  },
+  errorBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    background: "rgba(127,29,29,0.48)",
+    color: "#fca5a5",
+    padding: "10px 11px",
+    borderRadius: "11px",
+    marginBottom: "13px",
+    border: "1px solid rgba(248,113,113,0.18)",
+    fontSize: "12px",
+    lineHeight: 1.4
+  },
+  successBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    background: "rgba(20,83,45,0.46)",
+    color: "#86efac",
+    padding: "10px 11px",
+    borderRadius: "11px",
+    marginBottom: "13px",
+    border: "1px solid rgba(74,222,128,0.18)",
+    fontSize: "12px",
+    lineHeight: 1.4
+  },
+  messageIcon: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: "20px",
+    height: "20px",
+    borderRadius: "50%",
+    background: "rgba(255,255,255,0.08)",
+    fontWeight: "900",
+    fontSize: "11px"
   },
   submitBtn: {
     width: "100%",
-    background: "#0284c7",
+    minHeight: "48px",
+    background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
     color: "#fff",
-    border: "none",
-    padding: "12px",
-    borderRadius: "6px",
-    fontWeight: "bold",
+    border: "1px solid rgba(125,211,252,0.22)",
+    padding: "12px 15px",
+    borderRadius: "12px",
+    fontWeight: "850",
     cursor: "pointer",
-    fontSize: "15px",
+    fontSize: "14px",
+    boxShadow: "0 10px 25px rgba(14,165,233,0.20)"
+  },
+  submitBtnLoading: {
+    opacity: 0.92,
+    cursor: "wait",
+    boxShadow: "0 7px 18px rgba(14,165,233,0.14)"
+  },
+  loadingContent: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px"
+  },
+  spinner: {
+    width: "17px",
+    height: "17px",
+    border: "2px solid rgba(255,255,255,0.30)",
+    borderTop: "2px solid #fff",
+    borderRight: "2px solid #fff",
+    borderRadius: "50%",
+    display: "inline-block",
+    animation: "authButtonSpin 0.72s linear infinite"
+  },
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    margin: "20px 0 14px"
+  },
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    background: "rgba(148,163,184,0.13)"
+  },
+  dividerText: {
+    color: "#64748b",
+    fontSize: "9px",
+    fontWeight: "800",
+    letterSpacing: "1px"
+  },
+  switchArea: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "5px",
+    textAlign: "center"
+  },
+  switchLabel: {
+    color: "#94a3b8",
+    fontSize: "12px"
   },
   switchTextBtn: {
     background: "transparent",
     border: "none",
     color: "#38bdf8",
-    fontSize: "13px",
+    fontSize: "12px",
     cursor: "pointer",
-    textDecoration: "underline",
-  },
-  errorBox: {
-    background: "#7f1d1d",
-    color: "#fca5a5",
-    padding: "10px",
-    borderRadius: "6px",
-    marginBottom: "15px",
-    fontSize: "13px",
-  },
-  successBox: {
-    background: "#14532d",
-    color: "#86efac",
-    padding: "10px",
-    borderRadius: "6px",
-    marginBottom: "15px",
-    fontSize: "13px",
+    fontWeight: "800",
+    padding: "2px"
   }
 };
+
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("auth-modal-animations")
+) {
+  const style = document.createElement("style");
+  style.id = "auth-modal-animations";
+  style.textContent = `
+    @keyframes authButtonSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes authModalIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}

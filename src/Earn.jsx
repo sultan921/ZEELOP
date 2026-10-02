@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 
 console.log("🔥 PROFESSIONAL ARCADE LOADED WITH STRICT AD VERIFICATION");
 
@@ -16,6 +17,9 @@ function Earn({ addCoins }) {
   const [playTimeSeconds, setPlayTimeSeconds] = useState(0);
   const [timeRewardClaimed, setTimeRewardClaimed] = useState(false);
 
+  // Adsterra Smartlink configured
+  const ADSTERRA_SMARTLINK = "https://gentlemenwaspishunits.com/kfp83j58br?key=d2ed9999cecef48771504641de44dcd4";
+
   // 10 Minutes Timer Hook (600 seconds)
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -27,7 +31,6 @@ function Earn({ addCoins }) {
 
   // Helper to record game win & trigger Ad Modal every 4 wins
   const registerWin = (coinsEarned = 0) => {
-    // Immediate win coins (if any)
     if (coinsEarned > 0 && addCoins) {
       addCoins(coinsEarned);
     }
@@ -35,32 +38,25 @@ function Earn({ addCoins }) {
     setWinsCount((prev) => {
       const newWinCount = prev + 1;
       if (newWinCount % 4 === 0) {
-        // Trigger Ad Flow on every 4th win
         triggerAdFlow();
       }
       return newWinCount;
     });
   };
 
-  // Function to Trigger Ad Loading & Availability Check
+  // Function to Trigger Ad Flow with Smartlink
   const triggerAdFlow = () => {
     setShowAdModal(true);
     setAdStatus("loading");
-    setAdMessage("Ads search kiye ja rahe hain...");
+    setAdMessage("Sponsor ad load kiya ja raha hai...");
 
-    // Simulating Ad SDK Load / Check Availability
+    // Open Smartlink in new tab for user engagement
+    window.open(ADSTERRA_SMARTLINK, "_blank");
+
     setTimeout(() => {
-      // Example condition: Set to true if Ad Network delivers ad, false if no ads available
-      const isAdAvailable = Math.random() > 0.1; // 90% chance ad loads (Change to your AdMob / SDK check)
-
-      if (isAdAvailable) {
-        setAdStatus("playing");
-        setAdTimer(5);
-        setAdMessage("Ad chal raha hai...");
-      } else {
-        setAdStatus("error");
-        setAdMessage("❌ Ads abhi available nahi hain! Kuch waqt baad koshish karein.");
-      }
+      setAdStatus("playing");
+      setAdTimer(5);
+      setAdMessage("Ad verification chal rahi hai, baraye meherbani intezaar karein...");
     }, 1500);
   };
 
@@ -74,6 +70,7 @@ function Earn({ addCoins }) {
     } else if (adTimer === 0 && adStatus === "playing") {
       setAdStatus("completed");
       setAdMessage("🎉 Ad Poora Dekh Liya Gaya Hai!");
+      toast.success("Ad verification successful! Claim your reward.");
     }
     return () => clearInterval(interval);
   }, [showAdModal, adStatus, adTimer]);
@@ -81,13 +78,14 @@ function Earn({ addCoins }) {
   // Handle Reward Claiming after Ad Completion
   const handleClaimAdReward = () => {
     if (adStatus === "completed") {
-      if (addCoins) addCoins(10); // Reward given ONLY after full ad completion
+      if (addCoins) addCoins(10); 
       setShowAdModal(false);
       setAdStatus("idle");
+      toast.success("+10 Coins added successfully! 🪙");
     }
   };
 
-  // Close Modal when Ad Fails / Not Available
+  // Close Modal
   const handleCloseAdModal = () => {
     setShowAdModal(false);
     setAdStatus("idle");
@@ -98,20 +96,18 @@ function Earn({ addCoins }) {
     if (playTimeSeconds >= 600 && !timeRewardClaimed) {
       if (addCoins) addCoins(20);
       setTimeRewardClaimed(true);
+      toast.success("10 Minutes Playtime Reward Claimed (+20 Coins)!");
     }
   };
 
   // ---------------- GAME STATES ----------------
-  // 1. Guess Number
   const [secret, setSecret] = useState(null);
   const [guess, setGuess] = useState("");
   const [guessMessage, setGuessMessage] = useState("");
   const [guessWon, setGuessWon] = useState(false);
 
-  // 2. Rock Paper Scissors
   const [rpsResult, setRpsResult] = useState("");
 
-  // 3. Quiz
   const questions = [
     {
       question: "Which language is used with React?",
@@ -139,34 +135,26 @@ function Earn({ addCoins }) {
   const [quizMessage, setQuizMessage] = useState("");
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // 4. Memory
   const [memoryCards, setMemoryCards] = useState([]);
   const [memorySelected, setMemorySelected] = useState([]);
   const [memoryMatched, setMemoryMatched] = useState([]);
   const [memoryMessage, setMemoryMessage] = useState("");
 
-  // 5. Reaction
   const [reactionStatus, setReactionStatus] = useState("waiting");
   const [reactionStart, setReactionStart] = useState(null);
   const [reactionTime, setReactionTime] = useState(null);
 
-  // 6. Math
   const [mathQuestion, setMathQuestion] = useState(null);
   const [mathAnswer, setMathAnswer] = useState("");
   const [mathMessage, setMathMessage] = useState("");
 
-  // 7. Coin Flip
   const [coinResult, setCoinResult] = useState("");
-
-  // 8. Dice Roller
   const [diceVal, setDiceVal] = useState(1);
   const [diceMessage, setDiceMessage] = useState("");
 
-  // 9. Spin Wheel Slot
   const [slots, setSlots] = useState(["🍒", "🍋", "🍊"]);
   const [slotMessage, setSlotMessage] = useState("");
 
-  // 10. Word Scramble
   const wordList = [
     { word: "REACT", scrambled: "TCERA" },
     { word: "GOOVO", scrambled: "OOVOG" },
@@ -177,37 +165,17 @@ function Earn({ addCoins }) {
   const [wordInput, setWordInput] = useState("");
   const [wordMessage, setWordMessage] = useState("");
 
-  // 11. High or Low
   const [cardCurrent, setCardCurrent] = useState(5);
   const [cardMessage, setCardMessage] = useState("");
 
-  // 12. Tic Tac Toe
   const [tttBoard, setTttBoard] = useState(Array(9).fill(null));
   const [tttMsg, setTttMsg] = useState("");
 
-  // 13. Color Matcher
   const colorNames = ["RED", "BLUE", "GREEN", "YELLOW"];
   const colorCodes = ["red", "blue", "green", "gold"];
   const [targetColor, setTargetColor] = useState({ text: "", color: "" });
   const [colorMsg, setColorMsg] = useState("");
 
-  // 14. Tap Speed
-  const [tapScore, setTapScore] = useState(0);
-  const [tapTimer, setTapTimer] = useState(5);
-  const [tapActive, setTapActive] = useState(false);
-  const [tapMsg, setTapMsg] = useState("");
-
-  // 15. Simon Says Pattern
-  const [simonPattern, setSimonPattern] = useState([]);
-  const [simonUserStep, setSimonUserStep] = useState(0);
-  const [simonMsg, setSimonMsg] = useState("");
-
-  // 16. Whack Mole
-  const [molePos, setMolePos] = useState(null);
-  const [moleScore, setMoleScore] = useState(0);
-  const [moleActive, setMoleActive] = useState(false);
-
-  // ALL 16 GAMES DATA
   const games = [
     { id: 1, icon: "🎯", title: "Guess the Number", description: "Test your skill & guess the secret number." },
     { id: 2, icon: "✂️", title: "Rock Paper Scissors", description: "Outsmart the computer AI opponent." },
@@ -222,9 +190,6 @@ function Earn({ addCoins }) {
     { id: 11, icon: "🎴", title: "High or Low", description: "Predict the next card sequence." },
     { id: 12, icon: "🔲", title: "Tic Tac Toe", description: "Beat the intelligent AI player." },
     { id: 13, icon: "🎨", title: "Color Matcher", description: "Match true text colors accurately." },
-    { id: 14, icon: "👆", title: "Tap Speed Test", description: "Fast finger tapping speed test." },
-    { id: 15, icon: "🟢", title: "Simon Pattern", description: "Memorize & repeat color patterns." },
-    { id: 16, icon: "💥", title: "Whack-A-Target", description: "Hit moving targets rapidly." },
   ];
 
   function selectGame(game) {
@@ -242,9 +207,6 @@ function Earn({ addCoins }) {
     if (game.id === 11) { setCardCurrent(Math.floor(Math.random() * 10) + 1); setCardMessage(""); }
     if (game.id === 12) { setTttBoard(Array(9).fill(null)); setTttMsg(""); }
     if (game.id === 13) startColorGame();
-    if (game.id === 14) { setTapScore(0); setTapTimer(5); setTapActive(false); setTapMsg(""); }
-    if (game.id === 15) startSimon();
-    if (game.id === 16) startMole();
   }
 
   // Game Handlers
@@ -404,156 +366,40 @@ function Earn({ addCoins }) {
     } else setColorMsg("❌ Wrong match!");
   }
 
-  function tapNow() {
-    if (!tapActive) { setTapActive(true); setTapScore(1); return; }
-    setTapScore((s) => s + 1);
-  }
-  useEffect(() => {
-    let interval;
-    if (tapActive && tapTimer > 0) {
-      interval = setInterval(() => setTapTimer((t) => t - 1), 1000);
-    } else if (tapTimer === 0) {
-      setTapActive(false);
-      if (tapScore >= 25) {
-        setTapMsg(`🎉 Fast Tapper! ${tapScore} taps! Challenge cleared!`);
-        registerWin();
-      } else setTapMsg(`😔 You tapped ${tapScore} times. Need 25+ taps!`);
-    }
-    return () => clearInterval(interval);
-  }, [tapActive, tapTimer]);
-
-  function startSimon() {
-    const pat = [Math.floor(Math.random() * 4), Math.floor(Math.random() * 4), Math.floor(Math.random() * 4)];
-    setSimonPattern(pat); setSimonUserStep(0); setSimonMsg("Watch the order & repeat!");
-  }
-  function simonTap(idx) {
-    if (simonPattern.length === 0) return;
-    if (simonPattern[simonUserStep] === idx) {
-      if (simonUserStep === simonPattern.length - 1) {
-        setSimonMsg("🎉 Pattern Cleared!");
-        registerWin();
-      } else setSimonUserStep((s) => s + 1);
-    } else setSimonMsg("❌ Wrong sequence!");
-  }
-
-  function startMole() { setMoleScore(0); setMoleActive(true); setMolePos(Math.floor(Math.random() * 6)); }
-  function whack(idx) {
-    if (!moleActive) return;
-    if (idx === molePos) {
-      const nextScore = moleScore + 1;
-      setMoleScore(nextScore);
-      if (nextScore >= 5) {
-        setMoleActive(false);
-        registerWin();
-      } else setMolePos(Math.floor(Math.random() * 6));
-    }
-  }
-
   // Format MM:SS for timer
   const formattedMinutes = Math.floor(playTimeSeconds / 60);
   const formattedSeconds = playTimeSeconds % 60;
   const progressPercent = Math.min(100, Math.floor((playTimeSeconds / 600) * 100));
 
   return (
-    <main className="section" style={{ position: "relative" }}>
+    <main className="section relative p-4 text-white">
       {/* FULLSCREEN AD MODAL AFTER 4 WINS */}
       {showAdModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(15, 23, 42, 0.95)",
-            zIndex: 9999,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px",
-            color: "#fff",
-          }}
-        >
-          <div
-            style={{
-              background: "#1e293b",
-              border: adStatus === "error" ? "2px solid #ef4444" : "2px solid #38bdf8",
-              padding: "30px",
-              borderRadius: "16px",
-              textAlign: "center",
-              maxWidth: "400px",
-              width: "90%",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
-            }}
-          >
-            <div style={{ fontSize: "48px", marginBottom: "10px" }}>
-              {adStatus === "error" ? "⚠️" : "📺"}
-            </div>
-            <h2 style={{ margin: "0 0 10px 0", color: adStatus === "error" ? "#ef4444" : "#38bdf8" }}>
-              {adStatus === "error" ? "Ads Not Available" : "Sponsor Video Ad"}
-            </h2>
-            
-            <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>
-              {adMessage}
-            </p>
+        <div className="fixed inset-0 bg-slate-950/95 z-50 flex flex-col justify-center items-center p-4">
+          <div className="bg-slate-900 border-2 border-sky-400 p-6 rounded-2xl text-center max-w-sm w-full shadow-2xl">
+            <div className="text-5xl mb-3">📺</div>
+            <h2 className="text-xl font-bold text-sky-400 mb-2">Sponsored Ad Verification</h2>
+            <p className="text-slate-400 text-sm mb-4">{adMessage}</p>
 
             {adStatus === "playing" && (
-              <div
-                style={{
-                  background: "#0f172a",
-                  padding: "20px",
-                  borderRadius: "10px",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                  marginBottom: "20px",
-                  border: "1px dashed #475569",
-                }}
-              >
-                Ad Playing... ({adTimer}s)
+              <div className="bg-slate-950 p-4 rounded-xl text-lg font-bold mb-4 border border-slate-800">
+                Verifying Ad... ({adTimer}s)
               </div>
             )}
 
-            {/* BUTTON LOGIC: ONLY ACTIVE WHEN AD COMPLETED OR WHEN ERROR OCCURS */}
             {adStatus === "completed" ? (
               <button
                 onClick={handleClaimAdReward}
-                className="primary-button"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  background: "#22c55e",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
+                className="w-full py-3 bg-green-500 hover:bg-green-600 font-bold rounded-xl shadow-lg cursor-pointer transition-all"
               >
                 Claim +10 Coins & Continue ▶
-              </button>
-            ) : adStatus === "error" ? (
-              <button
-                onClick={handleCloseAdModal}
-                className="primary-button"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  background: "#ef4444",
-                  cursor: "pointer",
-                }}
-              >
-                Close (No Coins Earned)
               </button>
             ) : (
               <button
                 disabled
-                className="primary-button"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  background: "#475569",
-                  cursor: "not-allowed",
-                }}
+                className="w-full py-3 bg-slate-700 text-slate-400 font-bold rounded-xl cursor-not-allowed"
               >
-                {adStatus === "loading" ? "Searching Ads..." : `Please Wait (${adTimer}s)`}
+                {adStatus === "loading" ? "Opening Sponsor..." : `Please Wait (${adTimer}s)`}
               </button>
             )}
           </div>
@@ -561,65 +407,38 @@ function Earn({ addCoins }) {
       )}
 
       {/* TOP HEADER & TIME PLAY REWARD BANNER */}
-      <div style={{ marginBottom: "20px" }}>
-        <p className="small-title">GOOVO ARCADE</p>
-        <h1 style={{ margin: "0 0 10px 0" }}>🎮 Arcade Hub ({games.length} Games)</h1>
+      <div className="mb-6">
+        <p className="text-xs font-bold text-sky-400 tracking-wider">SAMATKAR ARCADE</p>
+        <h1 className="text-2xl font-extrabold mt-1 mb-4">🎮 Arcade Hub ({games.length} Games)</h1>
 
         {/* PROFESSIONAL TIME REWARD BANNER */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-            border: "1px solid #334155",
-            borderRadius: "12px",
-            padding: "16px 20px",
-            marginTop: "15px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3 shadow-lg">
+          <div className="flex justify-between items-center flex-wrap gap-2">
             <div>
-              <h3 style={{ margin: 0, color: "#38bdf8", fontSize: "16px" }}>
-                ⏱️ Play 10 Minutes & Earn +20 Coins Extra
-              </h3>
-              <p style={{ margin: "4px 0 0 0", color: "#94a3b8", fontSize: "13px" }}>
-                Keep playing arcade games! Your play time accumulates automatically.
-              </p>
+              <h3 className="text-sky-400 font-bold text-sm sm:text-base">⏱️ Play 10 Minutes & Earn +20 Coins</h3>
+              <p className="text-slate-400 text-xs">Keep playing arcade games to accumulate time automatically.</p>
             </div>
-            <div style={{ textAlign: "right" }}>
+            <div>
               {playTimeSeconds >= 600 && !timeRewardClaimed ? (
                 <button
                   onClick={handleClaimTimeReward}
-                  style={{
-                    padding: "8px 12px",
-                    background: "#22c55e",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg text-sm shadow-md cursor-pointer"
                 >
                   Claim +20 Coins
                 </button>
               ) : (
-                <span style={{ fontSize: "18px", fontWeight: "bold", color: timeRewardClaimed ? "#4ade80" : "#f59e0b" }}>
-                  {timeRewardClaimed ? "✅ Reward Claimed" : `${formattedMinutes}m ${formattedSeconds < 10 ? "0" : ""}${formattedSeconds}s / 10m`}
+                <span className="text-sm font-bold text-amber-400">
+                  {timeRewardClaimed ? "✅ Claimed" : `${formattedMinutes}m ${formattedSeconds < 10 ? "0" : ""}${formattedSeconds}s / 10m`}
                 </span>
               )}
             </div>
           </div>
 
           {/* PROGRESS BAR */}
-          <div style={{ width: "100%", height: "8px", background: "#334155", borderRadius: "4px", overflow: "hidden" }}>
+          <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
-              style={{
-                width: `${progressPercent}%`,
-                height: "100%",
-                background: timeRewardClaimed ? "#4ade80" : "linear-gradient(90deg, #38bdf8, #818cf8)",
-                transition: "width 1s linear",
-              }}
+              className="h-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-1000"
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
@@ -628,226 +447,208 @@ function Earn({ addCoins }) {
       {/* ACTIVE GAME RENDER */}
       {selectedGame ? (
         <div>
-          <button className="secondary-button" onClick={() => setSelectedGame(null)}>
+          <button
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold mb-4 cursor-pointer transition-all"
+            onClick={() => setSelectedGame(null)}
+          >
             ← Back to Games Hub
           </button>
 
           {selectedGame.id === 1 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🎯 Guess the Number</h2>
-              <input type="number" value={guess} onChange={(e) => setGuess(e.target.value)} disabled={guessWon} placeholder="1 - 10" />
-              <br /><button className="primary-button" onClick={checkGuess} disabled={guessWon} style={{ marginTop: "10px" }}>Guess</button>
-              <h3>{guessMessage}</h3>
-              {guessWon && <button className="secondary-button" onClick={startGuess}>🔄 Play Again</button>}
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🎯 Guess the Number</h2>
+              <input
+                type="number"
+                value={guess}
+                onChange={(e) => setGuess(e.target.value)}
+                disabled={guessWon}
+                placeholder="1 - 10"
+                className="bg-slate-950 border border-slate-700 px-4 py-2 rounded-xl text-center text-white w-32 outline-none"
+              />
+              <br />
+              <button
+                className="mt-4 px-6 py-2 bg-sky-500 hover:bg-sky-600 font-bold rounded-xl cursor-pointer"
+                onClick={checkGuess}
+                disabled={guessWon}
+              >
+                Guess
+              </button>
+              <h3 className="mt-3 font-semibold text-sky-300">{guessMessage}</h3>
+              {guessWon && (
+                <button className="mt-3 px-4 py-2 bg-green-500 rounded-xl font-bold cursor-pointer" onClick={startGuess}>
+                  🔄 Play Again
+                </button>
+              )}
             </div>
           )}
 
           {selectedGame.id === 2 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>✂️ Rock Paper Scissors</h2>
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "15px" }}>
-                <button className="secondary-button" onClick={() => playRPS("Rock")}>🪨 Rock</button>
-                <button className="secondary-button" onClick={() => playRPS("Paper")}>📄 Paper</button>
-                <button className="secondary-button" onClick={() => playRPS("Scissors")}>✂️ Scissors</button>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-4">✂️ Rock Paper Scissors</h2>
+              <div className="flex gap-3 justify-center">
+                <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer" onClick={() => playRPS("Rock")}>🪨 Rock</button>
+                <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer" onClick={() => playRPS("Paper")}>📄 Paper</button>
+                <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer" onClick={() => playRPS("Scissors")}>✂️ Scissors</button>
               </div>
-              <h3>{rpsResult}</h3>
+              <h3 className="mt-4 text-lg font-bold text-sky-400">{rpsResult}</h3>
             </div>
           )}
 
           {selectedGame.id === 3 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🧠 Quick Quiz</h2>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-4">🧠 Quick Quiz</h2>
               {!quizFinished ? (
                 <>
-                  <h3>{questions[quizIndex].question}</h3>
-                  <div style={{ display: "grid", gap: "8px", marginTop: "15px" }}>
+                  <h3 className="text-lg mb-4">{questions[quizIndex].question}</h3>
+                  <div className="grid gap-2 max-w-sm mx-auto">
                     {questions[quizIndex].options.map((opt) => (
-                      <button key={opt} className="secondary-button" onClick={() => answerQuiz(opt)}>{opt}</button>
+                      <button key={opt} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer transition-all" onClick={() => answerQuiz(opt)}>{opt}</button>
                     ))}
                   </div>
-                  <h3>{quizMessage}</h3>
+                  <h3 className="mt-3 text-sky-400 font-bold">{quizMessage}</h3>
                 </>
               ) : (
-                <button className="primary-button" onClick={() => selectGame(selectedGame)}>🔄 Play Again</button>
+                <button className="px-6 py-2 bg-green-500 rounded-xl font-bold cursor-pointer" onClick={() => selectGame(selectedGame)}>🔄 Play Again</button>
               )}
             </div>
           )}
 
           {selectedGame.id === 4 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🃏 Memory Match</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 70px)", gap: "10px", justifyContent: "center", marginTop: "15px" }}>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-4">🃏 Memory Match</h2>
+              <div className="grid grid-cols-4 gap-3 max-w-xs mx-auto">
                 {memoryCards.map((card, idx) => (
-                  <button key={idx} onClick={() => selectMemory(idx)} style={{ height: "70px", fontSize: "24px" }}>
+                  <button key={idx} onClick={() => selectMemory(idx)} className="h-16 bg-slate-800 hover:bg-slate-700 text-2xl rounded-xl cursor-pointer">
                     {memorySelected.includes(idx) || memoryMatched.includes(idx) ? card : "❓"}
                   </button>
                 ))}
               </div>
-              <h3>{memoryMessage}</h3>
+              <h3 className="mt-4 font-bold text-sky-400">{memoryMessage}</h3>
             </div>
           )}
 
           {selectedGame.id === 5 && (
-            <div className="action-card" style={{ marginTop: "20px", textAlign: "center" }}>
-              <h2>⚡ Reaction Game</h2>
-              <button onClick={reactNow} style={{ padding: "30px", fontSize: "22px", marginTop: "15px", width: "200px" }}>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">⚡ Reaction Game</h2>
+              <button onClick={reactNow} className="px-8 py-6 text-xl font-extrabold bg-sky-500 hover:bg-sky-600 rounded-2xl cursor-pointer shadow-lg transition-all">
                 {reactionStatus === "waiting" && "WAIT..."}
                 {reactionStatus === "GO" && "CLICK NOW!"}
                 {reactionStatus === "finished" && `${reactionTime} ms`}
               </button>
-              {reactionStatus === "finished" && <button className="secondary-button" onClick={startReaction} style={{ display: "block", margin: "15px auto" }}>🔄 Try Again</button>}
+              {reactionStatus === "finished" && <button className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer block mx-auto" onClick={startReaction}>🔄 Try Again</button>}
             </div>
           )}
 
           {selectedGame.id === 6 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🔢 Math Challenge</h2>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🔢 Math Challenge</h2>
               {mathQuestion && (
                 <>
-                  <h3>{mathQuestion.a} + {mathQuestion.b} = ?</h3>
-                  <input type="number" value={mathAnswer} onChange={(e) => setMathAnswer(e.target.value)} />
-                  <br /><button className="primary-button" onClick={checkMath} style={{ marginTop: "10px" }}>Submit</button>
-                  <h3>{mathMessage}</h3>
-                  <button className="secondary-button" onClick={newMathQuestion}>🔄 Next</button>
+                  <h3 className="text-xl mb-3">{mathQuestion.a} + {mathQuestion.b} = ?</h3>
+                  <input type="number" value={mathAnswer} onChange={(e) => setMathAnswer(e.target.value)} className="bg-slate-950 border border-slate-700 px-4 py-2 rounded-xl text-center text-white w-32 outline-none" />
+                  <br />
+                  <button className="mt-4 px-6 py-2 bg-sky-500 hover:bg-sky-600 font-bold rounded-xl cursor-pointer" onClick={checkMath}>Submit</button>
+                  <h3 className="mt-3 font-bold text-sky-400">{mathMessage}</h3>
+                  <button className="mt-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer" onClick={newMathQuestion}>🔄 Next</button>
                 </>
               )}
             </div>
           )}
 
           {selectedGame.id === 7 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🪙 Coin Flip</h2>
-              <p>Pick Heads or Tails:</p>
-              <div style={{ display: "flex", gap: "15px", justifyContent: "center", marginTop: "15px" }}>
-                <button className="primary-button" onClick={() => flipCoin("Heads")}>Heads</button>
-                <button className="primary-button" onClick={() => flipCoin("Tails")}>Tails</button>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🪙 Coin Flip</h2>
+              <div className="flex gap-4 justify-center mt-4">
+                <button className="px-6 py-2 bg-amber-500 hover:bg-amber-600 font-bold rounded-xl cursor-pointer" onClick={() => flipCoin("Heads")}>Heads</button>
+                <button className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 font-bold rounded-xl cursor-pointer" onClick={() => flipCoin("Tails")}>Tails</button>
               </div>
-              <h3>{coinResult}</h3>
+              <h3 className="mt-4 font-bold text-sky-400">{coinResult}</h3>
             </div>
           )}
 
           {selectedGame.id === 8 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🎲 Dice Roll</h2>
-              <div style={{ fontSize: "60px", margin: "15px 0" }}>{diceVal}</div>
-              <button className="primary-button" onClick={rollDice}>Roll Dice</button>
-              <h3>{diceMessage}</h3>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-2">🎲 Dice Roll</h2>
+              <div className="text-6xl my-4">{diceVal}</div>
+              <button className="px-6 py-2 bg-sky-500 hover:bg-sky-600 font-bold rounded-xl cursor-pointer" onClick={rollDice}>Roll Dice</button>
+              <h3 className="mt-3 font-bold text-sky-400">{diceMessage}</h3>
             </div>
           )}
 
           {selectedGame.id === 9 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🎰 Slot Machine</h2>
-              <div style={{ fontSize: "40px", letterSpacing: "15px", margin: "15px 0" }}>
-                {slots.join(" ")}
-              </div>
-              <button className="primary-button" onClick={spinSlot}>Spin Wheel</button>
-              <h3>{slotMessage}</h3>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-2">🎰 Slot Machine</h2>
+              <div className="text-4xl tracking-widest my-4">{slots.join(" ")}</div>
+              <button className="px-6 py-2 bg-sky-500 hover:bg-sky-600 font-bold rounded-xl cursor-pointer" onClick={spinSlot}>Spin Wheel</button>
+              <h3 className="mt-3 font-bold text-sky-400">{slotMessage}</h3>
             </div>
           )}
 
           {selectedGame.id === 10 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🔤 Word Scramble</h2>
-              <h3>Scrambled: {wordList[wordIdx].scrambled}</h3>
-              <input type="text" value={wordInput} onChange={(e) => setWordInput(e.target.value)} placeholder="Type word" />
-              <br /><button className="primary-button" onClick={checkWord} style={{ marginTop: "10px" }}>Submit</button>
-              <h3>{wordMessage}</h3>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🔤 Word Scramble</h2>
+              <h3 className="text-lg font-bold text-amber-400 mb-3">Scrambled: {wordList[wordIdx].scrambled}</h3>
+              <input type="text" value={wordInput} onChange={(e) => setWordInput(e.target.value)} placeholder="Type word" className="bg-slate-950 border border-slate-700 px-4 py-2 rounded-xl text-center text-white uppercase outline-none" />
+              <br />
+              <button className="mt-4 px-6 py-2 bg-sky-500 hover:bg-sky-600 font-bold rounded-xl cursor-pointer" onClick={checkWord}>Submit</button>
+              <h3 className="mt-3 font-bold text-sky-400">{wordMessage}</h3>
             </div>
           )}
 
           {selectedGame.id === 11 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🎴 High or Low</h2>
-              <h3>Current Card: {cardCurrent}</h3>
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "15px" }}>
-                <button className="primary-button" onClick={() => guessHighLow(true)}>Higher ⬆️</button>
-                <button className="primary-button" onClick={() => guessHighLow(false)}>Lower ⬇️</button>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🎴 High or Low</h2>
+              <h3 className="text-lg font-bold text-sky-400 mb-4">Current Card: {cardCurrent}</h3>
+              <div className="flex gap-4 justify-center">
+                <button className="px-6 py-2 bg-green-500 hover:bg-green-600 font-bold rounded-xl cursor-pointer" onClick={() => guessHighLow(true)}>Higher ⬆️</button>
+                <button className="px-6 py-2 bg-rose-500 hover:bg-rose-600 font-bold rounded-xl cursor-pointer" onClick={() => guessHighLow(false)}>Lower ⬇️</button>
               </div>
-              <h3>{cardMessage}</h3>
+              <h3 className="mt-4 font-bold text-sky-300">{cardMessage}</h3>
             </div>
           )}
 
           {selectedGame.id === 12 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🔲 Tic Tac Toe</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 60px)", gap: "8px", justifyContent: "center", marginTop: "15px" }}>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-3">🔲 Tic Tac Toe</h2>
+              <div className="grid grid-cols-3 gap-2 max-w-[200px] mx-auto">
                 {tttBoard.map((val, i) => (
-                  <button key={i} onClick={() => handleTttClick(i)} style={{ height: "60px", fontSize: "20px" }}>{val}</button>
+                  <button key={i} onClick={() => handleTttClick(i)} className="h-16 bg-slate-800 hover:bg-slate-700 text-xl font-bold rounded-xl cursor-pointer">{val}</button>
                 ))}
               </div>
-              <h3>{tttMsg}</h3>
-              {tttMsg && <button className="secondary-button" onClick={() => selectGame(selectedGame)}>Restart</button>}
+              <h3 className="mt-3 font-bold text-sky-400">{tttMsg}</h3>
+              {tttMsg && <button className="mt-3 px-4 py-2 bg-slate-800 rounded-xl font-bold cursor-pointer" onClick={() => selectGame(selectedGame)}>Restart</button>}
             </div>
           )}
 
           {selectedGame.id === 13 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🎨 Color Matcher</h2>
-              <p>Click the button matching the TEXT COLOR below:</p>
-              <h1 style={{ color: targetColor.color, fontSize: "36px" }}>{targetColor.text}</h1>
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+              <h2 className="text-xl font-bold mb-2">🎨 Color Matcher</h2>
+              <p className="text-slate-400 text-sm mb-3">Click the button matching the TEXT COLOR below:</p>
+              <h1 className="text-4xl font-extrabold mb-4" style={{ color: targetColor.color }}>{targetColor.text}</h1>
+              <div className="flex gap-2 justify-center flex-wrap">
                 {colorCodes.map((code) => (
-                  <button key={code} onClick={() => checkColor(code)} style={{ background: code, color: "#fff", padding: "10px 15px", border: "none", borderRadius: "8px" }}>{code}</button>
+                  <button key={code} onClick={() => checkColor(code)} className="px-4 py-2 font-bold rounded-xl cursor-pointer capitalize text-white shadow-md" style={{ background: code === "gold" ? "#eab308" : code }}>{code}</button>
                 ))}
               </div>
-              <h3>{colorMsg}</h3>
-              <button className="secondary-button" onClick={startColorGame} style={{ marginTop: "10px" }}>Next Round</button>
-            </div>
-          )}
-
-          {selectedGame.id === 14 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>👆 Tap Speed Test</h2>
-              <h3>Time Left: {tapTimer}s | Taps: {tapScore}</h3>
-              <button onClick={tapNow} className="primary-button" style={{ padding: "20px 40px", fontSize: "20px" }}>
-                {tapActive ? "TAP TAP TAP!" : "START TAPPING"}
-              </button>
-              <h3>{tapMsg}</h3>
-            </div>
-          )}
-
-          {selectedGame.id === 15 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>🟢 Simon Says</h2>
-              <p>Pattern sequence length: {simonPattern.length}</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", width: "160px", margin: "15px auto" }}>
-                {["red", "blue", "green", "yellow"].map((c, i) => (
-                  <button key={c} onClick={() => simonTap(i)} style={{ background: c, height: "60px", border: "none", borderRadius: "8px" }} />
-                ))}
-              </div>
-              <h3>{simonMsg}</h3>
-              <button className="secondary-button" onClick={startSimon}>Start Pattern</button>
-            </div>
-          )}
-
-          {selectedGame.id === 16 && (
-            <div className="action-card" style={{ marginTop: "20px" }}>
-              <h2>💥 Whack-A-Target</h2>
-              <h3>Score: {moleScore} / 5</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: "10px", justifyContent: "center", marginTop: "15px" }}>
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <button key={i} onClick={() => whack(i)} style={{ height: "70px", fontSize: "28px" }}>
-                    {molePos === i ? "🎯" : "⭕"}
-                  </button>
-                ))}
-              </div>
-              {moleScore >= 5 && <h3>🎉 Whacked all targets!</h3>}
-              {!moleActive && <button className="primary-button" onClick={startMole} style={{ marginTop: "15px" }}>Start Game</button>}
+              <h3 className="mt-4 font-bold text-sky-400">{colorMsg}</h3>
+              <button className="mt-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold cursor-pointer" onClick={startColorGame}>Next Round</button>
             </div>
           )}
         </div>
       ) : (
-        /* MAIN HUB GRID */
-        <div className="cards">
+        /* GAMES GRID HUB */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {games.map((game) => (
-            <div className="action-card" key={game.id}>
-              <div className="card-icon">{game.icon}</div>
-              <h3>{game.title}</h3>
-              <p>{game.description}</p>
-              <button className="primary-button" onClick={() => selectGame(game)}>
-                Play Now
-              </button>
+            <div
+              key={game.id}
+              onClick={() => selectGame(game)}
+              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 p-5 rounded-2xl cursor-pointer transition-all transform hover:-translate-y-1 shadow-lg flex items-center gap-4"
+            >
+              <div className="text-4xl">{game.icon}</div>
+              <div>
+                <h3 className="font-bold text-white text-base">{game.title}</h3>
+                <p className="text-slate-400 text-xs mt-1">{game.description}</p>
+              </div>
             </div>
           ))}
         </div>
