@@ -644,6 +644,16 @@ function PoolGame({
   const [aiVisualPower,setAiVisualPower]=useState(38);
   const cueControllerRef=useRef(null);
 
+  // PC keyboard controls only. Mouse/touch controls remain unchanged.
+  const poolKeyboardRef=useRef({
+    rotateDirection:0,
+    rotateRaf:null,
+    lastRotateTime:0,
+    enterHeld:false,
+    powerRaf:null,
+    powerStartedAt:0,
+  });
+
   const [ballInHand, setBallInHand] =
     useState(false);
 
@@ -2003,6 +2013,151 @@ function PoolGame({
     }
   },[cueControllerPulling,shoot]);
 
+  // PC keyboard:
+  // 8 = rotate cue smoothly upward, 2 = rotate smoothly downward.
+  // Hold Enter = build shot power; release Enter = shoot.
+  // This listener is intentionally keyboard-only, so mobile/touch behavior is unchanged.
+  useEffect(()=>{
+    const keyboard=poolKeyboardRef.current;
+    const canControl=()=>(
+      turnRef.current==='user' &&
+      !movingRef.current &&
+      !ballInHandRef.current &&
+      !winnerRef.current
+    );
+    const isTypingTarget=(target)=>{
+      const tag=target?.tagName?.toLowerCase();
+      return tag==='input'||tag==='textarea'||tag==='select'||target?.isContentEditable;
+    };
+
+    const stopRotate=()=>{
+      keyboard.rotateDirection=0;
+      keyboard.lastRotateTime=0;
+      if(keyboard.rotateRaf){
+        cancelAnimationFrame(keyboard.rotateRaf);
+        keyboard.rotateRaf=null;
+      }
+    };
+
+    const rotateFrame=(now)=>{
+      if(!keyboard.rotateDirection||!canControl()){
+        stopRotate();
+        return;
+      }
+      if(!keyboard.lastRotateTime)keyboard.lastRotateTime=now;
+      const dt=Math.min(32,now-keyboard.lastRotateTime);
+      keyboard.lastRotateTime=now;
+
+      // Smooth continuous rotation while the key is held.
+      // 8 moves the guide upward; 2 moves it downward.
+      cueAngleRef.current+=keyboard.rotateDirection*dt*0.00165;
+      aimingRef.current=true;
+      keyboard.rotateRaf=requestAnimationFrame(rotateFrame);
+    };
+
+    const startRotate=(direction)=>{
+      if(!canControl())return;
+      keyboard.rotateDirection=direction;
+      aimingRef.current=true;
+      if(!keyboard.rotateRaf){
+        keyboard.lastRotateTime=0;
+        keyboard.rotateRaf=requestAnimationFrame(rotateFrame);
+      }
+    };
+
+    const stopPowerCharge=()=>{
+      if(keyboard.powerRaf){
+        cancelAnimationFrame(keyboard.powerRaf);
+        keyboard.powerRaf=null;
+      }
+    };
+
+    const chargePower=(now)=>{
+      if(!keyboard.enterHeld||!canControl()){
+        stopPowerCharge();
+        return;
+      }
+      const elapsed=now-keyboard.powerStartedAt;
+      // About 1.8 seconds reaches full power.
+      const next=clamp(Math.round(5+(elapsed/1800)*95),5,100);
+      powerRef.current=next;
+      setPower(next);
+      aimingRef.current=true;
+      keyboard.powerRaf=requestAnimationFrame(chargePower);
+    };
+
+    const onKeyDown=(event)=>{
+      if(isTypingTarget(event.target))return;
+
+      if(event.code==='Numpad8'||event.key==='8'){
+        event.preventDefault();
+        startRotate(-1);
+        return;
+      }
+
+      if(event.code==='Numpad2'||event.key==='2'){
+        event.preventDefault();
+        startRotate(1);
+        return;
+      }
+
+      if(event.code==='Enter'){
+        if(!canControl())return;
+        event.preventDefault();
+        if(keyboard.enterHeld)return;
+        keyboard.enterHeld=true;
+        keyboard.powerStartedAt=performance.now();
+        powerRef.current=5;
+        setPower(5);
+        aimingRef.current=true;
+        stopPowerCharge();
+        keyboard.powerRaf=requestAnimationFrame(chargePower);
+      }
+    };
+
+    const onKeyUp=(event)=>{
+      if(event.code==='Numpad8'||event.key==='8'){
+        if(keyboard.rotateDirection===-1)stopRotate();
+        return;
+      }
+
+      if(event.code==='Numpad2'||event.key==='2'){
+        if(keyboard.rotateDirection===1)stopRotate();
+        return;
+      }
+
+      if(event.code==='Enter'&&keyboard.enterHeld){
+        event.preventDefault();
+        keyboard.enterHeld=false;
+        stopPowerCharge();
+        aimingRef.current=false;
+        if(canControl()){
+          shoot(cueAngleRef.current,2.4+powerRef.current*.155);
+        }
+      }
+    };
+
+    const onBlur=()=>{
+      stopRotate();
+      keyboard.enterHeld=false;
+      stopPowerCharge();
+      aimingRef.current=false;
+    };
+
+    window.addEventListener('keydown',onKeyDown);
+    window.addEventListener('keyup',onKeyUp);
+    window.addEventListener('blur',onBlur);
+
+    return()=>{
+      window.removeEventListener('keydown',onKeyDown);
+      window.removeEventListener('keyup',onKeyUp);
+      window.removeEventListener('blur',onBlur);
+      stopRotate();
+      keyboard.enterHeld=false;
+      stopPowerCharge();
+    };
+  },[shoot]);
+
   useEffect(() => {
     return () => {
       if (
@@ -2083,7 +2238,7 @@ function PoolGame({
       <footer className={`pool-shot-footer ${ballInHand?'pool-hand-footer':''}`}><span className="pool-status-dot"/><p aria-live="polite">{ballInHand&&turn==='user'?'Ball in hand: tap a clear place on the table.':message}</p><button onClick={()=>setHelpOpen(true)}>How to play</button><span className="pool-rotate-hint">Landscape = larger table</span></footer>
     </div>
     {exitRequested&&<ExitConfirmModal onCancel={()=>setExitRequested(false)} onConfirm={onBack}/>}
-    {helpOpen&&<div className="match-exit-overlay"><section className="match-exit-modal" role="dialog" aria-modal="true" aria-labelledby="pool-help-title"><h2 id="pool-help-title">Your next shot</h2><p>Aim on the table, then pull the side cue downward like a bow. The farther you pull, the stronger the shot. Release it to shoot automatically.</p><p>The cue on the table pulls back at the same time. You can also drag backwards directly from the white ball and release.</p><p>Clear your solids or stripes, then pot the 8-ball. A foul gives your opponent ball-in-hand.</p><button className="start-match-btn" onClick={()=>setHelpOpen(false)}>Got it</button></section></div>}
+    {helpOpen&&<div className="match-exit-overlay"><section className="match-exit-modal" role="dialog" aria-modal="true" aria-labelledby="pool-help-title"><h2 id="pool-help-title">Your next shot</h2><p>Aim on the table, then pull the side cue downward like a bow. The farther you pull, the stronger the shot. Release it to shoot automatically.</p><p>The cue on the table pulls back at the same time. You can also drag backwards directly from the white ball and release.</p><p><strong>PC keyboard:</strong> hold 8 or 2 to rotate the cue smoothly. Hold Enter to build power; release Enter to shoot.</p><p>Clear your solids or stripes, then pot the 8-ball. A foul gives your opponent ball-in-hand.</p><button className="start-match-btn" onClick={()=>setHelpOpen(false)}>Got it</button></section></div>}
   </div>;
 }
 
@@ -2108,7 +2263,7 @@ const ARENA_TEXT = {
     playLudo:"Play Ludo", startOnlineLudo:"Start Online Ludo", playPoolAI:"Play 8 Ball Pool", startOnlinePool:"Start Online Pool", maxAI:"AI matches allow a maximum stake of 100 coins. Online friend matches have no 100-coin cap.",
     challenge:"⚔️ Challenge", playerId:"Player ID", close:"Close setup", matchFound:"MATCH FOUND", decline:"Decline", accept:"Accept Challenge",
     walletTitle:"💰 Your Wallet", actualBalance:"Your actual balance:", youWon:"You Won!", computerWon:"Computer Won", continue:"Continue",
-    aiLimit:"AI matches allow a maximum bet of 100 coins.", loginRandom:"Please log in to use random matchmaking.", realtimeMissing:"Realtime server is not connected.", validBet:"A valid bet and sufficient coins are required.",
+    aiLimit:"AI matches allow bets from 10 to 100 coins.", loginRandom:"Please log in to use random matchmaking.", realtimeMissing:"Realtime server is not connected.", validBet:"A valid bet and sufficient coins are required.",
     insufficient:"Insufficient coins", nameId:"Enter at least 2 letters or a Player ID.", friendSent:"🤝 Friend request sent.", requestFailed:"Realtime request failed.",
     preparing:"Preparing your table…", exitGame:"← Exit Game", rollBegin:"Roll the dice to begin.", noMove:"No available move.", selectToken:"Select a glowing token.", computerChoosing:"Computer is choosing a move…",
     timeMove:"⏱️ Time over — moving one legal token automatically.", timeSkip:"⏱️ 40 seconds over — your turn was skipped.", emptySeat:"Empty seat", notMatch:"Not in this match", home:"home",
@@ -2131,7 +2286,7 @@ const ARENA_TEXT = {
     playLudo:"لڈو کھیلیں", startOnlineLudo:"آن لائن لڈو شروع کریں", playPoolAI:"8 بال پول کھیلیں", startOnlinePool:"آن لائن پول شروع کریں", maxAI:"اے آئی کے خلاف زیادہ سے زیادہ 100 کوائنز کی شرط لگ سکتی ہے۔ آن لائن دوست کے ساتھ 100 کوائنز کی حد نہیں۔",
     challenge:"⚔️ چیلنج", playerId:"پلیئر آئی ڈی", close:"سیٹ اپ بند کریں", matchFound:"میچ مل گیا", decline:"انکار", accept:"چیلنج قبول کریں",
     walletTitle:"💰 آپ کا والیٹ", actualBalance:"آپ کا اصل بیلنس:", youWon:"آپ جیت گئے!", computerWon:"کمپیوٹر جیت گیا", continue:"جاری رکھیں",
-    aiLimit:"اے آئی میچ میں زیادہ سے زیادہ 100 کوائنز کی شرط لگ سکتی ہے۔", loginRandom:"رینڈم میچ کے لیے لاگ اِن کریں۔", realtimeMissing:"ریئل ٹائم سرور منسلک نہیں ہے۔", validBet:"درست شرط اور کافی کوائنز ضروری ہیں۔",
+    aiLimit:"اے آئی میچ میں 10 سے 100 کوائنز تک شرط لگ سکتی ہے۔", loginRandom:"رینڈم میچ کے لیے لاگ اِن کریں۔", realtimeMissing:"ریئل ٹائم سرور منسلک نہیں ہے۔", validBet:"درست شرط اور کافی کوائنز ضروری ہیں۔",
     insufficient:"کوائنز ناکافی ہیں", nameId:"کم از کم 2 حروف یا پلیئر آئی ڈی لکھیں۔", friendSent:"🤝 دوست کی درخواست بھیج دی گئی۔", requestFailed:"ریئل ٹائم درخواست ناکام ہوگئی۔",
     preparing:"آپ کی میز تیار ہو رہی ہے…", exitGame:"← گیم سے نکلیں", rollBegin:"شروع کرنے کے لیے ڈائس رول کریں۔", noMove:"کوئی چال دستیاب نہیں۔", selectToken:"چمکتی ہوئی گوٹی منتخب کریں۔", computerChoosing:"کمپیوٹر چال منتخب کر رہا ہے…",
     timeMove:"⏱️ وقت ختم — ایک درست گوٹی خودکار طور پر چل رہی ہے۔", timeSkip:"⏱️ 40 سیکنڈ ختم — آپ کی باری گزر گئی۔", emptySeat:"خالی جگہ", notMatch:"اس میچ میں نہیں", home:"گھر",
@@ -2154,7 +2309,7 @@ const ARENA_TEXT = {
     playLudo:"लूडो खेलें", startOnlineLudo:"ऑनलाइन लूडो शुरू करें", playPoolAI:"8 बॉल पूल खेलें", startOnlinePool:"ऑनलाइन पूल शुरू करें", maxAI:"AI के खिलाफ अधिकतम 100 कॉइन्स की बाज़ी लग सकती है। ऑनलाइन दोस्त के साथ 100 कॉइन्स की सीमा नहीं है।",
     challenge:"⚔️ चैलेंज", playerId:"प्लेयर आईडी", close:"सेटअप बंद करें", matchFound:"मैच मिल गया", decline:"मना करें", accept:"चैलेंज स्वीकार करें",
     walletTitle:"💰 आपका वॉलेट", actualBalance:"आपका असली बैलेंस:", youWon:"आप जीत गए!", computerWon:"कंप्यूटर जीत गया", continue:"जारी रखें",
-    aiLimit:"AI मैच में अधिकतम 100 कॉइन्स की बाज़ी लग सकती है।", loginRandom:"रैंडम मैच के लिए लॉग इन करें।", realtimeMissing:"रियलटाइम सर्वर कनेक्ट नहीं है।", validBet:"सही बाज़ी और पर्याप्त कॉइन्स जरूरी हैं।",
+    aiLimit:"AI मैच में 10 से 100 कॉइन्स तक बाज़ी लग सकती है।", loginRandom:"रैंडम मैच के लिए लॉग इन करें।", realtimeMissing:"रियलटाइम सर्वर कनेक्ट नहीं है।", validBet:"सही बाज़ी और पर्याप्त कॉइन्स जरूरी हैं।",
     insufficient:"कॉइन्स कम हैं", nameId:"कम से कम 2 अक्षर या प्लेयर आईडी लिखें।", friendSent:"🤝 दोस्त की रिक्वेस्ट भेज दी गई।", requestFailed:"रियलटाइम रिक्वेस्ट फेल हुई।",
     preparing:"आपकी टेबल तैयार हो रही है…", exitGame:"← गेम से बाहर", rollBegin:"शुरू करने के लिए डाइस रोल करें।", noMove:"कोई चाल उपलब्ध नहीं।", selectToken:"चमकती गोटी चुनें।", computerChoosing:"कंप्यूटर चाल चुन रहा है…",
     timeMove:"⏱️ समय खत्म — एक सही गोटी अपने-आप चल रही है।", timeSkip:"⏱️ 40 सेकंड खत्म — आपकी बारी निकल गई।", emptySeat:"खाली सीट", notMatch:"इस मैच में नहीं", home:"होम",
@@ -2163,6 +2318,112 @@ const ARENA_TEXT = {
 };
 function arenaLangKey(lang){const v=String(lang||'en').toLowerCase();return v.startsWith('ur')?'ur':v.startsWith('hi')?'hi':'en';}
 function arenaText(lang,key){const code=arenaLangKey(lang);return ARENA_TEXT[code]?.[key] ?? ARENA_TEXT.en[key] ?? key;}
+
+
+/* =========================================================
+   SHADOW FIGHT 01 — ORIGINAL SILHOUETTE FIGHTER
+   Inspired by classic mobile silhouette fighters; all artwork
+   and controls below are original SAMATKAAR UI.
+========================================================= */
+const SHADOW_WEAPONS = [
+  {id:'fists',name:'Bare Hands',icon:'✊',reach:13,damage:8,speed:1.12},
+  {id:'reaper',name:'Reaper',icon:'☾',reach:20,damage:12,speed:.94},
+  {id:'bigsword',name:'Big Sword',icon:'🗡️',reach:21,damage:14,speed:.80},
+  {id:'staffnight',name:'Staff of Night',icon:'✦',reach:22,damage:10,speed:1.00},
+  {id:'composite',name:'Composite Sword',icon:'⚔️',reach:21,damage:13,speed:.90},
+  {id:'chainblade',name:'Chain Blade',icon:'⛓️',reach:22,damage:11,speed:1.04},
+];
+
+function ShadowWeaponArt({weapon}){
+  if(!weapon || weapon==='fists')return null;
+  if(weapon==='reaper')return <g><path className="wp-handle" d="M4 4h8v88H4z"/><path className="wp-steel" d="M8 8C48-18 91-9 120 13 80 8 55 22 31 52 42 27 31 15 8 15z"/><path className="wp-edge" d="M23 8c33-12 65-4 91 7-37-1-62 13-85 41 12-24 9-38-6-48z"/></g>;
+  if(weapon==='bigsword')return <g><path className="wp-grip" d="M0 54h42v13H0z"/><path className="wp-guard" d="M34 43h10v35H34z"/><path className="wp-steel" d="M42 48L168 10l22 20L55 70z"/><path className="wp-edge" d="M56 54l116-35 9 8L59 64z"/></g>;
+  if(weapon==='staffnight')return <g><path className="wp-staff" d="M0 39h182v9H0z"/><path className="wp-steel" d="M162 17l28 26-28 27 8-23-8-30zM18 21L0 43l18 22-6-18 6-26z"/><circle className="wp-gem" cx="168" cy="43" r="8"/></g>;
+  if(weapon==='composite')return <g><path className="wp-grip" d="M0 55h42v12H0z"/><path className="wp-guard" d="M35 43h10v36H35z"/><path className="wp-steel" d="M43 49c46-29 96-39 145-30-43 9-83 28-127 57L44 68z"/><path className="wp-edge" d="M56 55c41-21 80-31 119-33-36 12-74 28-112 47z"/><path className="wp-rune" d="M78 54l16 7 15-12 17 6 17-12"/></g>;
+  return <g><path className="wp-grip" d="M0 55h42v13H0z"/><path className="wp-chain" d="M41 61c24-25 38 20 59-5s36 16 54-4"/><path className="wp-steel" d="M147 36l42 14-32 30-5-18-20-5z"/><path className="wp-edge" d="M154 44l27 8-21 20z"/></g>;
+}
+
+const SHADOW_SPRITES = {
+  intro1:1, intro2:4, intro3:6, idle:6,
+  punch:11, hit:11,
+  leftPunch:19, jumpKick:21, rightKick:25, downKick:24, leftKick:9,
+  rightPunch:4, victory1:22, victory2:15, victory3:23,
+  jumpPowerKick:11, downPowerKick:13,
+  walk:6, jump:21, crouch:24
+};
+const shadowSprite=(key)=>`/shadow-sultan/png${SHADOW_SPRITES[key]||SHADOW_SPRITES.idle}.png`;
+
+function ShadowFighter({side,x,y,facing,action,hit,introFrame=0,victoryFrame=0}){
+  const spriteKey = victoryFrame ? ['victory1','victory2','victory3'][Math.min(2,victoryFrame-1)] :
+    introFrame ? ['intro1','intro2','intro3'][Math.min(2,introFrame-1)] :
+    hit ? 'hit' : action || 'idle';
+  return <div className={`ss-fighter ss-${side} sprite-${spriteKey} ${hit?'ss-hit':''}`} style={{left:`${x}%`,bottom:`${y}%`,transform:`translateX(-50%) scaleX(${facing<0?-1:1})`}}>
+    <div className="ss-ground-shadow"/>
+    <img className="ss-sprite" src={shadowSprite(spriteKey)} alt="" draggable="false"/>
+  </div>;
+}
+
+function ShadowDuelGame({user,betAmount=50,weapon='fists',onFinish,onBack}){
+  const [me,setMe]=useState({x:25,y:7,hp:100});
+  const [ai,setAi]=useState({x:75,y:7,hp:100});
+  const [meAction,setMeAction]=useState('idle'),[aiAction,setAiAction]=useState('idle');
+  const [meHit,setMeHit]=useState(false),[aiHit,setAiHit]=useState(false);
+  const [seconds,setSeconds]=useState(99),[round,setRound]=useState(1),[wins,setWins]=useState([0,0]);
+  const [message,setMessage]=useState(''),[paused,setPaused]=useState(false),[intro,setIntro]=useState(true),[introFrame,setIntroFrame]=useState(1);
+  const [meVictory,setMeVictory]=useState(0),[aiVictory,setAiVictory]=useState(0);
+  const [joy,setJoy]=useState({active:false,x:0,y:0,nx:0,ny:0});
+  const state=useRef({me,ai,paused:false,ended:false,round,wins,intro:true});
+  const timers=useRef(new Set()),joyRef=useRef(null),attackLock=useRef(false),aiLock=useRef(false),keys=useRef(new Set());
+  state.current={me,ai,paused,ended:state.current.ended,round,wins,intro};
+  const later=(fn,ms)=>{const id=setTimeout(()=>{timers.current.delete(id);fn();},ms);timers.current.add(id);return id;};
+  useEffect(()=>()=>timers.current.forEach(clearTimeout),[]);
+  const w=SHADOW_WEAPONS.find(v=>v.id===weapon)||SHADOW_WEAPONS[0];
+  const profileSrc=user?.profilePic||user?.profilePicture||user?.avatar_url||user?.photoURL||user?.picture||user?.photo||user?.avatarUrl||user?.profileImage||user?.avatar;
+  const initial=(user?.name||'H').slice(0,1).toUpperCase();
+
+  const leaveFight=useCallback(()=>{try{if(document.fullscreenElement)document.exitFullscreen();}catch{}try{screen.orientation?.unlock?.();}catch{}onBack?.();},[onBack]);
+  useEffect(()=>{const html=document.documentElement,body=document.body,old={ho:html.style.overflow,bo:body.style.overflow,bt:body.style.touchAction};html.style.overflow='hidden';body.style.overflow='hidden';body.style.touchAction='none';const immersive=async()=>{try{const root=document.querySelector('.shadow-sultan-page');if(!document.fullscreenElement&&root?.requestFullscreen)await root.requestFullscreen({navigationUI:'hide'});}catch{}try{await screen.orientation?.lock?.('landscape');}catch{}};window.addEventListener('pointerdown',immersive,{once:true,passive:true});return()=>{window.removeEventListener('pointerdown',immersive);html.style.overflow=old.ho;body.style.overflow=old.bo;body.style.touchAction=old.bt;};},[]);
+
+  const playIntro=useCallback(()=>{setIntro(true);setMessage(`ROUND ${state.current.round}`);setIntroFrame(1);later(()=>setIntroFrame(2),1000);later(()=>setIntroFrame(3),2000);later(()=>{setIntro(false);setIntroFrame(0);setMessage('FIGHT!');later(()=>setMessage(''),650);},3000);},[]);
+  useEffect(()=>{playIntro();},[round]);
+
+  const resetRound=useCallback((r)=>{state.current.ended=false;setMe({x:25,y:7,hp:100});setAi({x:75,y:7,hp:100});setMeAction('idle');setAiAction('idle');setMeVictory(0);setAiVictory(0);setSeconds(99);setRound(r);},[]);
+  const finishRound=useCallback((winner)=>{if(state.current.ended)return;state.current.ended=true;if(winner===null){setMessage('DRAW');later(()=>resetRound(state.current.round),1500);return;}const next=[...state.current.wins];next[winner]++;setWins(next);setMessage(winner===0?'ROUND WON':'ROUND LOST');const setVictory=winner===0?setMeVictory:setAiVictory;setVictory(1);later(()=>setVictory(2),350);later(()=>setVictory(3),700);gameSound(winner===0?'win':'foul',.16);if(next[winner]>=2){later(()=>onFinish({winner:winner===0?'user':'ai',betAmount,game:'shadow'}),1450);}else later(()=>resetRound(state.current.round+1),1550);},[betAmount,onFinish,resetRound]);
+  useEffect(()=>{if(paused||intro||state.current.ended)return;const id=setInterval(()=>setSeconds(s=>{if(s<=1){clearInterval(id);const st=state.current;if(st.me.hp===st.ai.hp){finishRound(null);}else finishRound(st.me.hp>st.ai.hp?0:1);return 0;}return s-1;}),1000);return()=>clearInterval(id);},[paused,intro,round,finishRound]);
+
+  const movePlayer=useCallback((dx,vertical=0)=>{if(paused||intro||state.current.ended)return;setMe(p=>{const maxX=Math.max(8,state.current.ai.x-5.5);return {...p,x:clamp(p.x+dx,7,maxX),y:vertical>0?19:vertical<0?4:7};});setMeAction(vertical>0?'jump':vertical<0?'crouch':Math.abs(dx)>.08?'walk':'idle');if(vertical!==0)later(()=>{setMe(p=>({...p,y:7}));setMeAction('idle');},vertical>0?480:280);},[paused,intro]);
+
+  const directionFromInput=()=>{const k=keys.current;if(k.has('w')&&k.has('a'))return 'upback';if(k.has('w')&&k.has('d'))return 'upforward';if(k.has('s')&&k.has('a'))return 'downback';if(k.has('s')&&k.has('d'))return 'downforward';if(k.has('w'))return 'up';if(k.has('s'))return 'down';if(k.has('a'))return 'back';if(k.has('d'))return 'forward';const {nx,ny}=joy;if(ny<-.52&&nx>.35)return 'upforward';if(ny<-.52&&nx<-.35)return 'upback';if(ny<-.52)return 'up';if(ny>.52&&nx>.35)return 'downforward';if(ny>.52&&nx<-.35)return 'downback';if(ny>.52)return 'down';if(nx<-.4)return 'back';if(nx>.4)return 'forward';return 'neutral';};
+  const actionFor=(kind,dir)=>{if(kind==='punch'){if(dir==='back')return 'leftPunch';if(dir==='forward')return 'rightPunch';return 'punch';}if(dir==='up')return 'jumpKick';if(dir==='forward')return 'rightKick';if(dir==='down')return 'downKick';if(dir==='back')return 'leftKick';if(dir==='upforward'||dir==='upback')return 'jumpPowerKick';if(dir==='downforward'||dir==='downback')return 'downPowerKick';return 'rightKick';};
+  const doAttack=useCallback((kind)=>{if(attackLock.current||paused||intro||state.current.ended)return;attackLock.current=true;const dir=directionFromInput();const act=actionFor(kind,dir);let bonus=1,extraReach=0;if(act==='jumpKick'||act==='jumpPowerKick'){bonus=1.28;extraReach=3;setMe(p=>({...p,y:19}));}if(act==='downKick'||act==='downPowerKick'){bonus=1.08;extraReach=2;}if(act==='leftKick'||act==='rightKick'){bonus=1.14;extraReach=2;}if(act==='leftPunch'||act==='rightPunch')bonus=1.1;setMeAction(act);gameSound('shoot',.06);later(()=>{const st=state.current,dist=Math.abs(st.ai.x-st.me.x),reach=(kind==='kick'?14:13)+extraReach;if(dist<=reach){const dmg=Math.round((kind==='kick'?9:8)*bonus);setAi(p=>{const hp=clamp(p.hp-dmg,0,100);if(hp<=0)later(()=>finishRound(0),120);return {...p,hp,x:clamp(p.x+2.2,9,93)};});setAiHit(true);setAiAction('hit');gameSound('capture',.1);later(()=>{setAiHit(false);setAiAction('idle');},220);}},125);later(()=>{setMe(p=>({...p,y:7}));setMeAction('idle');attackLock.current=false;},430);},[paused,intro,joy,finishRound]);
+
+  useEffect(()=>{const down=e=>{const key=e.key.toLowerCase();if(!['w','a','s','d','k','l'].includes(key))return;e.preventDefault();keys.current.add(key);if(key==='a')movePlayer(-2,0);if(key==='d')movePlayer(2,0);if(key==='w')movePlayer(0,1);if(key==='s')movePlayer(0,-1);if(key==='k')doAttack('punch');if(key==='l')doAttack('kick');};const up=e=>keys.current.delete(e.key.toLowerCase());window.addEventListener('keydown',down,{passive:false});window.addEventListener('keyup',up);return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);};},[movePlayer,doAttack]);
+
+  useEffect(()=>{if(paused||intro||state.current.ended)return;const id=setInterval(()=>{if(aiLock.current)return;const st=state.current,d=st.me.x-st.ai.x,dist=Math.abs(d);if(dist>12){setAi(p=>({...p,x:clamp(p.x+Math.sign(d)*Math.min(1.45,Math.max(.5,dist-11)),9,93)}));setAiAction('walk');later(()=>setAiAction('idle'),170);return;}aiLock.current=true;const pool=['punch','leftPunch','rightPunch','rightKick','downKick','leftKick','jumpKick','jumpPowerKick'];const act=secureRandomChoice(pool);setAiAction(act);if(act.includes('jump')||act==='jumpKick')setAi(p=>({...p,y:19}));later(()=>{const live=state.current;if(Math.abs(live.me.x-live.ai.x)<=15){const dmg=secureRandomInt(5,9);setMe(p=>{const hp=clamp(p.hp-dmg,0,100);if(hp<=0)later(()=>finishRound(1),100);return {...p,hp,x:clamp(p.x-1.8,7,91)};});setMeHit(true);setMeAction('hit');gameSound('capture',.09);later(()=>{setMeHit(false);setMeAction('idle');},220);}},150);later(()=>{setAi(p=>({...p,y:7}));setAiAction('idle');aiLock.current=false;},620);},760);return()=>clearInterval(id);},[paused,intro,round,finishRound]);
+
+  const joyMove=e=>{if(!joyRef.current)return;const r=joyRef.current.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.32,len=Math.hypot(dx,dy)||1;if(len>max){dx=dx/len*max;dy=dy/len*max;}const nx=dx/max,ny=dy/max;setJoy({active:true,x:dx,y:dy,nx,ny});if(ny<-.72)movePlayer(nx*1.1,1);else if(ny>.72)movePlayer(nx*.7,-1);else if(Math.abs(nx)>.18)movePlayer(nx*1.9,0);};
+  const joyEnd=()=>{setJoy({active:false,x:0,y:0,nx:0,ny:0});if(!attackLock.current)setMeAction('idle');};
+
+  return <div className="shadow-sultan-page"><style>{SHADOW_DUEL_STYLES+`\n.ss-sprite{position:absolute;left:50%;bottom:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;transform:translateX(-50%);filter:drop-shadow(0 7px 5px #000a);pointer-events:none}.ss-fighter{height:clamp(245px,48vh,410px);width:clamp(160px,21vw,270px)}.ss-hit .ss-sprite{animation:ssSpriteHit .18s 2}@keyframes ssSpriteHit{50%{transform:translateX(-58%) rotate(-4deg)}}`}</style><div className="ss-stage">
+    <div className="ss-moon"/><div className="ss-fog f1"/><div className="ss-fog f2"/><div className="ss-mountains"/><div className="ss-gate"/><div className="ss-floor"/>
+    <div className="ss-hud"><div className="ss-card"><div className="ss-avatar">{profileSrc?<img src={profileSrc} alt=""/>:<b>{initial}</b>}</div><div className="ss-info"><strong>{user?.name||'PLAYER'}</strong><div className="ss-hp"><i style={{width:`${me.hp}%`}}/></div><div className="ss-rounds"><i className={wins[0]>0?'won':''}/><i className={wins[0]>1?'won':''}/></div></div></div><div className="ss-center"><b>{String(seconds).padStart(2,'0')}</b><button onClick={()=>setPaused(v=>!v)}>{paused?'▶':'Ⅱ'}</button></div><div className="ss-card right"><div className="ss-avatar ai">AI</div><div className="ss-info"><strong>SHADOW AI</strong><div className="ss-hp"><i style={{width:`${ai.hp}%`}}/></div><div className="ss-rounds"><i className={wins[1]>0?'won':''}/><i className={wins[1]>1?'won':''}/></div></div></div></div>
+    <div className="ss-prize">🪙 {Math.floor(betAmount*2*.9)} <small>WIN PRIZE · 10% FEE</small></div>
+    <ShadowFighter side="me" x={me.x} y={me.y} facing={1} action={meAction} hit={meHit} introFrame={intro?introFrame:0} victoryFrame={meVictory}/><ShadowFighter side="ai" x={ai.x} y={ai.y} facing={-1} action={aiAction} hit={aiHit} introFrame={intro?introFrame:0} victoryFrame={aiVictory}/>
+    {message&&<div className="ss-message">{message}</div>}
+    <button className="ss-exit" onClick={leaveFight} aria-label="Exit fight">×</button>
+    <div ref={joyRef} className="ss-joystick" onPointerDown={e=>{e.currentTarget.setPointerCapture?.(e.pointerId);joyMove(e)}} onPointerMove={e=>joy.active&&joyMove(e)} onPointerUp={joyEnd} onPointerCancel={joyEnd}><i style={{transform:`translate(${joy.x}px,${joy.y}px)`}}/><span className="u">W</span><span className="d">S</span><span className="l">A</span><span className="r">D</span></div>
+    <div className="ss-actions"><button className="ss-punch" onPointerDown={()=>doAttack('punch')}>K</button><button className="ss-kick" onPointerDown={()=>doAttack('kick')}>L</button><small>W/A/S/D + K PUNCH · L KICK</small></div>
+    {paused&&<div className="ss-pause-layer"><h2>PAUSED</h2><button onClick={()=>setPaused(false)}>Resume</button><button onClick={leaveFight}>Exit Match</button></div>}
+  </div></div>;
+}
+
+function opponentLabel(){return 'SHADOW AI';}
+
+const SHADOW_DUEL_STYLES=`
+html,body{overscroll-behavior:none}.shadow-sultan-page{position:fixed;inset:0;z-index:2147483000;background:#071015;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}.shadow-sultan-page *{box-sizing:border-box}.ss-stage{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 34%,#b8eef0 0,#4c9099 24%,#244853 52%,#0a1b24 82%,#03090d 100%)}.ss-moon{position:absolute;left:38%;top:10%;width:24%;aspect-ratio:1;border-radius:50%;background:#d8ffff55;filter:blur(16px);box-shadow:0 0 100px #bffcff77}.ss-mountains{position:absolute;inset:28% -5% 14%;background:#102b35;clip-path:polygon(0 100%,0 55%,9% 70%,17% 34%,25% 69%,33% 18%,41% 65%,50% 9%,58% 68%,67% 25%,75% 67%,84% 31%,92% 69%,100% 52%,100% 100%);opacity:.82}.ss-gate{position:absolute;left:50%;bottom:16%;width:28%;height:40%;transform:translateX(-50%);background:#06121899;clip-path:polygon(0 100%,9% 27%,29% 27%,36% 9%,45% 9%,50% 0,55% 9%,64% 9%,71% 27%,91% 27%,100% 100%,74% 100%,74% 43%,26% 43%,26% 100%)}.ss-fog{position:absolute;left:-10%;width:120%;height:12%;border-radius:50%;background:#c9ffff16;filter:blur(18px)}.ss-fog.f1{bottom:25%}.ss-fog.f2{bottom:40%;opacity:.5}.ss-floor{position:absolute;left:-5%;right:-5%;bottom:-8%;height:29%;background:linear-gradient(#17272a,#05090b 30%,#010203);transform:skewY(-1deg);box-shadow:0 -12px 45px #000c}.ss-floor:before{content:'';position:absolute;left:0;right:0;top:7%;height:2px;background:#8ed9d655;box-shadow:0 0 18px #9ff}.ss-hud{position:absolute;z-index:30;top:2%;left:3%;right:3%;display:grid;grid-template-columns:1fr 130px 1fr;gap:16px;align-items:start}.ss-card{display:flex;gap:10px;align-items:center}.ss-card.right{flex-direction:row-reverse;text-align:right}.ss-avatar{width:clamp(52px,7.5vw,88px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#0c1b21;border:3px solid #9fdadd;box-shadow:0 0 0 2px #071115,0 7px 18px #000b;font:1000 22px Georgia}.ss-avatar.ai{border-color:#d3aa62;background:#281017}.ss-avatar img{width:100%;height:100%;object-fit:cover}.ss-info{flex:1;min-width:0}.ss-info strong{font:900 clamp(12px,2vw,25px) Georgia,serif;letter-spacing:.05em;text-shadow:0 2px 3px #000}.ss-hp{height:clamp(10px,1.5vw,16px);margin-top:6px;background:#151b1c;border:2px solid #060809;box-shadow:0 0 0 2px #a68a56;min-width:110px;transform:skewX(-10deg);overflow:hidden}.ss-hp i{display:block;height:100%;background:linear-gradient(#ffe15b,#ef6a27);transition:width .16s}.right .ss-hp i{margin-left:auto}.ss-rounds{display:flex;gap:6px;margin-top:8px}.right .ss-rounds{justify-content:flex-end}.ss-rounds i{width:25px;height:7px;background:#20292a;clip-path:polygon(0 0,100% 0,84% 100%,10% 100%)}.ss-rounds i.won{background:#ffc63e;box-shadow:0 0 10px #ffc63e}.ss-center{text-align:center}.ss-center b{display:block;font:900 clamp(38px,6vw,70px)/.8 Georgia;color:#ecd99c;text-shadow:0 3px #18343b}.ss-center button{margin-top:9px;width:48px;height:48px;border-radius:50%;border:2px solid #8cb8ba;background:#27494bcc;color:#cce5df;font-size:20px}.ss-prize{position:absolute;z-index:31;top:18%;left:50%;transform:translateX(-50%);padding:6px 14px;border:1px solid #b99755;border-radius:999px;background:#071113cc;color:#f5d26d;font-weight:900}.ss-prize small{font-size:7px;color:#d4dddd}.ss-fighter{position:absolute;z-index:12;width:clamp(145px,18vw,230px);height:clamp(245px,45vh,380px);transform-origin:50% 100%;transition:left .075s linear,bottom .11s}.ss-ground-shadow{position:absolute;left:10%;bottom:0;width:80%;height:16px;border-radius:50%;background:#000c;filter:blur(6px)}.ss-human{position:absolute;inset:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 5px 3px #000c)}.ss-rig{transform-origin:115px 320px}.ss-human path,.ss-human ellipse{fill:#010203;stroke:#11191c;stroke-width:3}.ss-human .ss-chest{fill:#050708;stroke:#283337}.ss-human .ss-belt{fill:#10181a;stroke:#455054}.ss-human .ss-eye{fill:#d8ff6d;stroke:none}.ss-human .ss-mask,.ss-human .ss-hair{fill:#000}.ss-human .ss-boot,.ss-human .ss-hand{fill:#000}.ss-back-arm,.ss-front-arm,.ss-back-leg,.ss-front-leg,.ss-head{transform-box:fill-box;transition:transform .08s;transform-origin:top center}.ss-weapon{transform-origin:0 0}.wp-steel{fill:#4d5c65!important;stroke:#e4eef1!important;stroke-width:2!important}.wp-edge{fill:#e7f2f4!important;stroke:none!important}.wp-grip{fill:#2a150d!important;stroke:#b5824c!important}.wp-guard{fill:#80603a!important;stroke:#d7aa66!important}.wp-handle,.wp-staff{fill:#11191c!important;stroke:#687980!important}.wp-gem{fill:#9d48ff!important;stroke:#dfc2ff!important}.wp-chain{fill:none!important;stroke:#66757b!important;stroke-width:6!important;stroke-dasharray:5 4!important}.wp-rune{fill:none!important;stroke:#9ff!important;stroke-width:2!important}.act-walk .ss-back-leg{animation:ssLegA .28s infinite alternate}.act-walk .ss-front-leg{animation:ssLegB .28s infinite alternate}.act-walk .ss-back-arm{animation:ssArmA .28s infinite alternate}.act-walk .ss-front-arm{animation:ssArmB .28s infinite alternate}.act-punch .ss-front-arm,.act-straight .ss-front-arm{transform:rotate(-82deg) translate(12px,-8px)}.act-uppercut .ss-front-arm{transform:rotate(-135deg) translate(12px,-5px)}.act-lowpunch .ss-rig{transform:translateY(30px) rotate(7deg)}.act-backfist .ss-back-arm{transform:rotate(92deg)}.act-kick .ss-front-leg,.act-sidekick .ss-front-leg{transform:rotate(-88deg) translate(5px,-14px)}.act-spinkick .ss-rig{transform:rotate(-16deg)}.act-spinkick .ss-back-leg{transform:rotate(86deg)}.act-sweep .ss-rig{transform:translateY(35px) rotate(7deg)}.act-sweep .ss-front-leg{transform:rotate(-102deg)}.act-jump .ss-rig,.act-jumpkick .ss-rig,.act-weaponjump .ss-rig{transform:translateY(-24px) rotate(-5deg)}.act-jumpkick .ss-front-leg{transform:rotate(-104deg) translate(4px,-12px)}.act-crouch .ss-rig{transform:translateY(46px) scaleY(.82)}.act-weapon .ss-weapon{transform:translate(168px,170px) rotate(-50deg)}.act-weaponthrust .ss-front-arm{transform:rotate(-82deg) translate(12px,-8px)}.act-weaponthrust .ss-weapon{transform:translate(180px,185px) rotate(-12deg)}.act-weaponback .ss-rig{transform:rotate(-8deg)}.act-weaponback .ss-weapon{transform:translate(145px,170px) rotate(-115deg)}.act-weaponsweep .ss-rig{transform:translateY(30px) rotate(7deg)}.act-weaponsweep .ss-weapon{transform:translate(170px,220px) rotate(18deg)}.act-weaponjump .ss-weapon{transform:translate(160px,155px) rotate(-70deg)}.ss-hit .ss-rig{animation:ssHit .18s 2}.ss-impact{position:absolute;z-index:20;left:54%;top:34%;width:70px;height:70px}.ss-impact i{position:absolute;width:6px;height:13px;border-radius:70% 20% 70% 50%;background:#8b1518;animation:ssDrop .4s ease-out forwards}.ss-impact i:nth-child(1){--x:34px;--y:-26px}.ss-impact i:nth-child(2){--x:50px;--y:-5px}.ss-impact i:nth-child(3){--x:18px;--y:20px}.ss-impact i:nth-child(4){--x:55px;--y:22px}.ss-message{position:absolute;z-index:40;left:50%;top:38%;transform:translate(-50%,-50%);font:1000 clamp(32px,7vw,78px) Georgia;color:#ead99e;text-shadow:0 5px #17282d,0 0 25px #dfffff77}.ss-exit{position:absolute;z-index:200;right:10px;top:10px;width:40px;height:40px;border-radius:50%;border:1px solid #fff6;background:#071013dd;color:#fff;font-size:22px;cursor:pointer}.ss-joystick{position:absolute;z-index:50;left:3%;bottom:3%;width:clamp(125px,18vw,190px);aspect-ratio:1;border-radius:50%;border:4px solid #071013dd;background:radial-gradient(circle,#9a6646aa 0 28%,#58696a99 29% 67%,#11191bcc 68%);box-shadow:inset 0 0 20px #eaffff33,0 6px 16px #000a;touch-action:none}.ss-joystick i{position:absolute;width:42%;height:42%;left:29%;top:29%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#b98460,#5d3926 62%,#1c0f09);box-shadow:0 4px 10px #000;pointer-events:none}.ss-joystick span{position:absolute;color:#111b1d;font-size:13px;pointer-events:none}.ss-joystick .u{top:6%;left:47%}.ss-joystick .d{bottom:5%;left:47%}.ss-joystick .l{left:6%;top:46%}.ss-joystick .r{right:6%;top:46%}.ss-actions{position:absolute;z-index:50;right:3%;bottom:3%;width:clamp(180px,27vw,310px);height:clamp(130px,20vw,210px)}.ss-actions button{position:absolute;border-radius:50%;border:4px solid #071013dd;background:radial-gradient(circle,#aeb9a5cc,#526568bb 66%,#142023ee);box-shadow:inset 0 0 18px #efffff55,0 5px 12px #0009;font-size:clamp(25px,5vw,48px);touch-action:none}.ss-punch{right:43%;top:0;width:43%;aspect-ratio:1}.ss-kick{right:0;bottom:0;width:43%;aspect-ratio:1}.ss-actions small{position:absolute;left:0;bottom:0;font-size:8px;color:#fffa}.ss-pause-layer{position:absolute;z-index:180;inset:0;background:#020607e9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.ss-pause-layer h2{font-size:38px;margin:0;color:#e9d79b}.ss-pause-layer button{min-width:190px;padding:12px;border-radius:12px;border:1px solid #91b9ba;background:#111a1c;color:#fff;font-weight:900}@keyframes ssLegA{to{transform:rotate(19deg)}}@keyframes ssLegB{to{transform:rotate(-19deg)}}@keyframes ssArmA{to{transform:rotate(-17deg)}}@keyframes ssArmB{to{transform:rotate(17deg)}}@keyframes ssHit{50%{transform:translateX(-13px) rotate(-6deg)}}@keyframes ssDrop{to{transform:translate(var(--x),var(--y)) rotate(160deg);opacity:0}}
+@media(max-width:700px){.ss-hud{left:2%;right:2%;grid-template-columns:1fr 72px 1fr;gap:6px}.ss-avatar{width:43px;border-width:2px}.ss-info strong{font-size:9px}.ss-hp{min-width:76px;height:9px;border-width:1px}.ss-center b{font-size:30px}.ss-center button{width:32px;height:32px;font-size:14px}.ss-prize{top:16%;font-size:8px}.ss-fighter{width:132px;height:220px}.ss-joystick{width:116px;bottom:2%}.ss-actions{width:178px;height:120px;bottom:2%}.ss-actions button{border-width:3px}.ss-punch,.ss-kick{width:78px;height:78px}.ss-actions small{display:none}.ss-exit{width:34px;height:34px}}
+`;
+
 
 /* =========================================================
    MAIN GAMING ARENA
@@ -2186,6 +2447,8 @@ export default function SamatkarGamingArena({
   const [opponentCount,setOpponentCount]=useState(1);
   const [ludoSetup,setLudoSetup]=useState(false);
   const [poolSetup,setPoolSetup]=useState(false);
+  const [shadowSetup,setShadowSetup]=useState(false);
+  const [shadowWeapon,setShadowWeapon]=useState("fists");
   const settledMatchRef=useRef(false);
   const [opponentType, setOpponentType] =
     useState("computer");
@@ -2250,10 +2513,41 @@ export default function SamatkarGamingArena({
     const onMatchFound = (payload) => {
       setMatchmaking(false);
       setMatchmakingGame(null);
+      setSearchingPlayers(false);
       const myId=String(user?.id || user?._id || "");
       const p1=payload?.player1, p2=payload?.player2;
       const opponent=String(p1?.id||"")===myId?p2:p1;
+      const finalBet=Math.max(1,Math.floor(Number(payload?.betCoins)||1));
+      const selectedGame=String(payload?.game||"ludo").toLowerCase();
       setOnlineMatch({...payload, opponent});
+
+      // Match milte hi dono browsers par existing game screen open karo.
+      // Coin stake sirf match start par ek martaba deduct hota hai.
+      if(typeof deductCoins!=="function"){
+        showNotice("Coin system connection missing hai.","error");
+        return;
+      }
+      const paid=deductCoins(finalBet,`🌐 Online ${selectedGame==='ludo'?'Ludo':selectedGame==='shadow'?'Shadow Fight 01':'8 Ball Pool'} bet: ${finalBet} coins`);
+      if(!paid){
+        arenaSocket.emit("leave_game_room",{roomId:payload?.roomId});
+        showNotice("Online match start nahi hua: sufficient coins required hain.","error");
+        return;
+      }
+      settledMatchRef.current=false;
+      setMatchResult(null);
+      setLudoSetup(false);
+      setPoolSetup(false);
+      setShadowSetup(false);
+      setGame({
+        type:selectedGame,
+        bet:finalBet,
+        opponentCount:1,
+        weapon:selectedGame==='shadow'?shadowWeapon:undefined,
+        online:true,
+        roomId:payload?.roomId,
+        opponent,
+        matchType:payload?.matchType||"online"
+      });
       showNotice(`🎮 ${t("matchFound")}: ${opponent?.name || t("opponent")}`, "success");
     };
     const onSearchResults = (payload) => { setSearchingPlayers(false); setSearchResults(Array.isArray(payload?.players)?payload.players:[]); };
@@ -2269,6 +2563,7 @@ export default function SamatkarGamingArena({
     arenaSocket.on("queue_cancelled",onCancelled);
     arenaSocket.on("match_found",onMatchFound);
     arenaSocket.on("player_search_results",onSearchResults);
+    arenaSocket.on("search_players_result",onSearchResults);
     arenaSocket.on("friend_request_sent",onFriendRequestSent);
     arenaSocket.on("friend_request_received",onFriendRequestReceived);
     arenaSocket.on("challenge_received",onChallengeReceived);
@@ -2279,12 +2574,12 @@ export default function SamatkarGamingArena({
     return()=>{
       arenaSocket.off("connect",onConnect); arenaSocket.off("disconnect",onDisconnect);
       arenaSocket.off("waiting_for_opponent",onWaiting); arenaSocket.off("queue_cancelled",onCancelled);
-      arenaSocket.off("match_found",onMatchFound); arenaSocket.off("player_search_results",onSearchResults);
+      arenaSocket.off("match_found",onMatchFound); arenaSocket.off("player_search_results",onSearchResults); arenaSocket.off("search_players_result",onSearchResults);
       arenaSocket.off("friend_request_sent",onFriendRequestSent); arenaSocket.off("friend_request_received",onFriendRequestReceived);
       arenaSocket.off("challenge_received",onChallengeReceived); arenaSocket.off("challenge_rejected",onChallengeRejected);
       arenaSocket.off("match_error",onSocketError); arenaSocket.off("arena_error",onSocketError);
     };
-  }, [user?.id, user?._id, showNotice]);
+  }, [user?.id, user?._id, showNotice, deductCoins, shadowWeapon, t]);
 
   const realtimeIdentity=()=>({
     userId:String(user?.id || user?._id || ""),
@@ -2296,7 +2591,7 @@ export default function SamatkarGamingArena({
     const identity=realtimeIdentity();
     if(!identity.userId){showNotice("Random match ke liye login karein.","error");return;}
     if(!socketConnected){showNotice("Realtime server connect nahi hai.","error");return;}
-    if(!Number.isFinite(finalBet)||finalBet<1||coins<finalBet){showNotice("Valid bet aur sufficient coins required hain.","error");return;}
+    if(!Number.isFinite(finalBet)||finalBet<10||finalBet>20000||coins<finalBet){showNotice("Online bet 10 se 20,000 coins tak honi chahiye aur balance sufficient hona chahiye.","error");return;}
     setMatchmaking(true); setMatchmakingGame(selectedGame); setOnlineMatch(null);
     arenaSocket.emit("find_random_match",{...identity,betCoins:finalBet,game:selectedGame});
   };
@@ -2313,6 +2608,7 @@ export default function SamatkarGamingArena({
   const sendFriendRequest=(player)=>arenaSocket.emit("send_friend_request",{...realtimeIdentity(),toUserId:player.id});
   const challengePlayer=(player,selectedGame)=>{
     const finalBet=Math.floor(Number(betAmount));
+    if(!Number.isFinite(finalBet)||finalBet<10||finalBet>20000){showNotice("Friend challenge bet 10 se 20,000 coins tak honi chahiye.","error");return;}
     if(coins<finalBet){showNotice("Challenge ke liye sufficient coins nahi hain.","error");return;}
     arenaSocket.emit("challenge_player",{...realtimeIdentity(),toUserId:player.id,game:selectedGame,betCoins:finalBet});
     showNotice(`⚔️ ${player.name} ko ${selectedGame==='ludo'?'Ludo':'8 Ball Pool'} challenge bheja gaya.`,"success");
@@ -2320,7 +2616,13 @@ export default function SamatkarGamingArena({
 
   const answerChallenge=(accept)=>{
     if(!incomingChallenge)return;
-    arenaSocket.emit(accept?"accept_challenge":"reject_challenge",{...realtimeIdentity(),challengeId:incomingChallenge.challengeId});
+    arenaSocket.emit(accept?"accept_challenge":"reject_challenge",{
+      ...realtimeIdentity(),
+      challengeId:incomingChallenge.challengeId,
+      challengerUserId:incomingChallenge.challengerUserId || incomingChallenge.fromUserId || incomingChallenge.challenger?.userId || incomingChallenge.challenger?.id,
+      game:incomingChallenge.game,
+      betCoins:incomingChallenge.betCoins
+    });
     setIncomingChallenge(null);
   };
 
@@ -2330,7 +2632,7 @@ export default function SamatkarGamingArena({
 
   const changeBet = (amount) => {
     setBetAmount(
-      Math.max(1, Number(amount) || 1)
+      Math.max(10, Math.min(opponentType==='computer'?100:20000, Number(amount) || 10))
     );
 
     setCustomBet("");
@@ -2349,11 +2651,10 @@ export default function SamatkarGamingArena({
 
     if (
       Number.isFinite(number) &&
-      number > 0
+      number >= 10
     ) {
-      setBetAmount(
-        Math.floor(number)
-      );
+      const maxBet = opponentType === "computer" ? 100 : 20000;
+      setBetAmount(Math.min(maxBet, Math.floor(number)));
     }
   };
 
@@ -2364,14 +2665,15 @@ export default function SamatkarGamingArena({
   const startMatch = (
     selectedGame
   ) => {
-    const finalBet =
+    let finalBet =
       Math.floor(
         Number(betAmount)
       );
+    
 
     if (
       !Number.isFinite(finalBet) ||
-      finalBet < 1
+      finalBet < 10
     ) {
       showNotice(
         "Please enter a valid bet amount.",
@@ -2381,10 +2683,13 @@ export default function SamatkarGamingArena({
       return;
     }
 
-    // AI matches are intentionally capped at 100 coins.
-    // Real online/friend matches are not limited by this AI cap.
-    if (opponentType === "computer" && finalBet > 100) {
-      showNotice(t("aiLimit"), "error");
+    // AI: 10-100 coins. Human/friend matches: 10-20,000 coins.
+    if (opponentType === "computer" && (finalBet < 10 || finalBet > 100)) {
+      showNotice("AI bet 10 se 100 coins tak honi chahiye.", "error");
+      return;
+    }
+    if (opponentType === "friend" && (finalBet < 10 || finalBet > 20000)) {
+      showNotice("Friend/online bet 10 se 20,000 coins tak honi chahiye.", "error");
       return;
     }
 
@@ -2451,7 +2756,7 @@ export default function SamatkarGamingArena({
     const paid =
       deductCoins(
         finalBet,
-        `🎮 ${selectedGame === "ludo" ? "Ludo" : "8 Ball Pool"} bet: ${finalBet} coins`
+        `🎮 ${selectedGame === "ludo" ? "Ludo" : selectedGame === "shadow" ? "Shadow Fight 01" : "8 Ball Pool"} bet: ${finalBet} coins`
       );
 
     if (!paid) {
@@ -2471,6 +2776,7 @@ export default function SamatkarGamingArena({
       type: selectedGame,
       bet: finalBet,
       opponentCount: selectedGame === "ludo" ? opponentCount : 1,
+      weapon: selectedGame === "shadow" ? shadowWeapon : undefined,
     });
   };
 
@@ -2548,6 +2854,17 @@ export default function SamatkarGamingArena({
         />
       );
     }
+
+    if (game.type === "shadow") {
+      return (
+        <ShadowDuelGame user={user}
+          betAmount={game.bet}
+          weapon={game.weapon}
+          onFinish={finishMatch}
+          onBack={() => {settledMatchRef.current=true;setGame(null);}}
+        />
+      );
+    }
   }
 
   return (
@@ -2574,7 +2891,7 @@ export default function SamatkarGamingArena({
           {onlineAction==='search'&&<div className="player-search-box"><div className="player-search-row"><input value={friendSearch} onChange={e=>setFriendSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&searchPlayers()} placeholder="Name / Player ID"/><button type="button" onClick={searchPlayers}>{searchingPlayers?'Searching…':'Search'}</button></div><div className="player-search-results">{searchResults.map(player=><article className="player-result-card" key={player.id}><PlayerAvatar user={player} name={player.name} color="#38bdf8"/><div><strong>{player.name}</strong><small>Player ID: {String(player.id).slice(-8)}</small></div><div className="player-result-actions"><button onClick={()=>sendFriendRequest(player)} disabled={friendRequestStatus[player.id]==='sent'}>{friendRequestStatus[player.id]==='sent'?'✓ Sent':'＋ Friend'}</button><button onClick={()=>challengePlayer(player,'ludo')}>⚔️ Challenge</button></div></article>)}</div></div>}
           {(onlineAction==='join'||onlineAction==='create')&&<label className="setup-bet-label online-room-label">Room code <input value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} placeholder="SAM-123456"/><span>{onlineAction==='create'?'Share this code with your friend':'Enter friend room code'}</span></label>}
         </div>}
-        <label className="setup-bet-label">Your bet <input aria-label="Ludo bet" type="number" min="1" max={opponentType==='computer'?100:undefined} step="1" value={betAmount} onChange={e=>changeBet(e.target.value)}/><span>coins</span></label>
+        <label className="setup-bet-label">Your bet <input aria-label="Ludo bet" type="number" min="10" max={opponentType==='computer'?100:20000} step="1" value={betAmount} onChange={e=>changeBet(e.target.value)}/><span>coins</span></label>
         <div className="ludo-prize-preview"><div><small>Your stake</small><strong>{betAmount} coins</strong></div><div><small>Win payout</small><strong>{betAmount*(opponentCount+1)} coins</strong></div></div>
         {opponentType==='computer'&&<p className="setup-stake-note">{t("maxAI")}</p>}
         <p className="setup-stake-note">{t("stakeNote")}</p>
@@ -2601,12 +2918,24 @@ export default function SamatkarGamingArena({
           {onlineAction==='search'&&<div className="player-search-box"><div className="player-search-row"><input value={friendSearch} onChange={e=>setFriendSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&searchPlayers()} placeholder={t("searchPlaceholder")}/><button type="button" onClick={searchPlayers}>{searchingPlayers?t("searching"):t("search")}</button></div><div className="player-search-results">{searchResults.map(player=><article className="player-result-card" key={'pool-'+player.id}><PlayerAvatar user={player} name={player.name} color="#38bdf8"/><div><strong>{player.name}</strong><small>{t("playerId")}: {String(player.id).slice(-8)}</small></div><div className="player-result-actions"><button onClick={()=>sendFriendRequest(player)} disabled={friendRequestStatus[player.id]==='sent'}>{friendRequestStatus[player.id]==='sent'?t("sent"):t("friend")}</button><button onClick={()=>challengePlayer(player,'pool')}>{t("challenge")}</button></div></article>)}</div></div>}
           {(onlineAction==='join'||onlineAction==='create')&&<label className="setup-bet-label online-room-label">{t("roomCode")} <input value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} placeholder="SAM-123456"/><span>{onlineAction==='create'?t("shareCode"):t("enterCode")}</span></label>}
         </div>}
-        <label className="setup-bet-label">{t("yourBet")} <input aria-label="Pool bet" type="number" min="1" max={opponentType==='computer'?100:undefined} step="1" value={betAmount} onChange={e=>changeBet(e.target.value)}/><span>{t("coins")}</span></label>
+        <label className="setup-bet-label">{t("yourBet")} <input aria-label="Pool bet" type="number" min="10" max={opponentType==='computer'?100:20000} step="1" value={betAmount} onChange={e=>changeBet(e.target.value)}/><span>{t("coins")}</span></label>
         <div className="ludo-prize-preview"><div><small>{t("yourStake")}</small><strong>{betAmount} {t("coins")}</strong></div><div><small>{t("winPayout")}</small><strong>{betAmount*2} {t("coins")}</strong></div></div>
         {opponentType==='computer'&&<p className="setup-stake-note">{t("maxAI")}</p>}
         <p className="setup-stake-note">{t("stakeNote")}</p>
         <button className="start-match-btn" onClick={()=>opponentType==='computer'?startMatch('pool'):(onlineAction==='random'?findRandomMatch('pool'):startMatch('pool'))}>{opponentType==='computer'?t("playPoolAI"):t("startOnlinePool")}</button>
         {notice.text&&<p className="setup-error" role="alert">{notice.text}</p>}
+      </section></div>}
+
+
+      {shadowSetup && <div className="match-exit-overlay"><section className="ludo-setup-modal shadow-setup-modal" role="dialog" aria-modal="true"><style>{`.shadow-setup-modal{width:min(650px,96vw)}.shadow-weapon-title{margin:15px 0 8px;font-size:10px;letter-spacing:2px;color:#ffd66b;font-weight:900}.shadow-weapon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}.shadow-weapon-grid button{min-width:0;padding:11px 6px;border-radius:12px;border:1px solid #4b6159;background:#091720;color:#dbe8e3}.shadow-weapon-grid button.selected{border-color:#ffd45f;background:#45371b;box-shadow:0 0 0 1px #ffd45f55}.shadow-weapon-grid b,.shadow-weapon-grid span{display:block}.shadow-weapon-grid b{font-size:24px;height:30px}.shadow-weapon-grid span{font-size:10px;margin-top:4px}@media(max-width:520px){.shadow-weapon-grid{grid-template-columns:repeat(2,1fr)}}`}</style>
+        <button className="setup-close" aria-label="Close setup" onClick={()=>setShadowSetup(false)}>×</button>
+        <span className="setup-eyebrow">SHADOW FIGHT 01</span><h2>Choose fighter mode</h2><p>Professional SAMATKAAR silhouette combat. AI bet: 10–100 coins. Friend/online bet: 10–20,000 coins.</p>
+        <div className="ludo-mode-options"><button className={opponentType==='computer'?'selected':''} onClick={()=>{setOpponentType('computer');setBetAmount(v=>Math.max(10,Math.min(100,Number(v)||10)));setCustomBet('')}}><strong>🤖 Fight AI</strong><span>10–100 coin bet</span></button><button className={opponentType==='friend'?'selected':''} onClick={()=>setOpponentType('friend')}><strong>🌐 Friend Room</strong><span>Create / join online</span></button></div>
+        {opponentType==='friend'&&<div className="online-match-tools"><div className="online-action-tabs"><button className={onlineAction==='create'?'selected':''} onClick={createOnlineRoom}>Create Room</button><button className={onlineAction==='join'?'selected':''} onClick={()=>setOnlineAction('join')}>Join Room</button><button className={onlineAction==='random'?'selected':''} onClick={()=>setOnlineAction('random')}>Random</button></div>{(onlineAction==='join'||onlineAction==='create')&&<label className="setup-bet-label online-room-label">Room code <input value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} placeholder="SAM-123456"/><span>{onlineAction==='create'?'Share with friend':'Enter friend code'}</span></label>}</div>}
+        <div className="shadow-weapon-title">CHOOSE WEAPON</div><div className="shadow-weapon-grid">{SHADOW_WEAPONS.map(item=><button key={item.id} className={shadowWeapon===item.id?'selected':''} onClick={()=>setShadowWeapon(item.id)}><b>{item.icon}</b><span>{item.name}</span></button>)}</div>
+        <label className="setup-bet-label">Your bet <input type="number" min="10" max={opponentType==='computer'?100:20000} value={betAmount} onChange={e=>changeBet(e.target.value)}/><span>coins</span></label>
+        <div className="ludo-prize-preview"><div><small>Your stake</small><strong>{betAmount} coins</strong></div><div><small>Winner receives</small><strong>{Math.floor(betAmount*2*.9)} coins</strong></div></div><p className="setup-stake-note">Best of 3 rounds · winner payout is after 10% platform fee.</p>
+        <button className="start-match-btn" onClick={()=>{if(opponentType==='computer'){startMatch('shadow')}else if(onlineAction==='random')findRandomMatch('shadow');else startMatch('shadow')}}>{opponentType==='computer'?'⚔️ Fight Shadow Fight 01 AI':'🌐 Start Friend Match'}</button>
       </section></div>}
 
       {/* =================================================
@@ -2856,6 +3185,7 @@ export default function SamatkarGamingArena({
                 →
               </div>
             </button>
+            <div className="game-card shadow-duel-card coming-game-card" aria-disabled="true"><div className="game-card-icon">🥷</div><div className="game-card-content"><span>FIGHTING GAME</span><h3>Shadow Fight 01</h3><p>Professional fighting game is being prepared.</p></div><div className="coming-soon-pill">COMING SOON</div></div>
             <div className="coming-games-grid" aria-label="Coming soon games">
               {[
                 ["🏏","Cricket Clash"],
@@ -2994,7 +3324,8 @@ export default function SamatkarGamingArena({
                 <div className="custom-bet">
                   <input
                     type="number"
-                    min="1"
+                    min="10"
+                    max={opponentType === "computer" ? 100 : 20000}
                     value={
                       customBet
                     }
@@ -4850,6 +5181,21 @@ body.pool-game-active [class*="ad-container"],body.pool-game-active [class*="ban
 .professional-pool .pool-table-stage,.professional-pool .pool-pro-canvas{touch-action:none!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important}
 @media(max-width:900px) and (orientation:landscape){.professional-pool.arena-game-page{padding:4px!important}.professional-pool .pool-hud,.professional-pool .pool-topline{flex:0 0 auto}.professional-pool .pool-playfield{width:100%!important;max-width:none!important;grid-template-columns:38px minmax(0,1fr) 32px!important;gap:5px!important}.professional-pool .pool-table-stage{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}.professional-pool .pool-pro-canvas{width:auto!important;height:100%!important;max-width:100%!important;max-height:calc(100dvh - 122px)!important;aspect-ratio:9/5}.professional-pool .pool-shot-footer{display:none!important}}
 @media(max-width:900px) and (orientation:portrait){.professional-pool:after{content:"↻ Mobile ko side karein — game landscape me chalega";position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:30px;text-align:center;background:#050b14;color:#fff;font:900 20px/1.5 system-ui}}
+/* Stable mobile landscape sizing: keep the 900x500 table ratio and never let fullscreen/URL-bar resize stretch it. */
+.professional-pool:fullscreen{overflow:hidden!important}
+.professional-pool .pool-playfield{overflow:hidden;align-items:center}
+.professional-pool .pool-table-stage{box-sizing:border-box;overflow:hidden;justify-self:center;align-self:center}
+.professional-pool .pool-pro-canvas{display:block;box-sizing:border-box}
+@media(max-width:900px) and (orientation:landscape){
+  .professional-pool .pool-game-shell{height:100dvh!important;min-height:0!important}
+  .professional-pool .pool-hud{min-height:0!important}
+  .professional-pool .pool-topline{min-height:0!important}
+  .professional-pool .pool-playfield{height:auto!important;min-height:0!important;grid-template-columns:38px minmax(0,1fr) 32px!important;align-items:center!important}
+  .professional-pool .pool-table-stage{width:100%!important;height:auto!important;max-width:calc((100dvh - 112px)*1.8)!important;max-height:calc(100dvh - 112px)!important;aspect-ratio:9/5!important;margin:auto!important}
+  .professional-pool .pool-pro-canvas{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;aspect-ratio:9/5!important}
+  .professional-pool .pool-power-column,.professional-pool .pool-pocket-rack{height:min(100%,calc(100dvh - 112px))!important;max-height:calc(100dvh - 112px)!important}
+}
+
 
 .online-match-tools{margin:14px 0;padding:12px;border:1px solid #466252;border-radius:14px;background:#081720}.online-action-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.online-action-tabs button{padding:10px 6px;border-radius:10px;border:1px solid #456071;background:#102334;color:#d9efff;font-weight:800;cursor:pointer;font-size:11px}.online-action-tabs button.selected{border-color:#78e99a;background:#19432e;box-shadow:0 0 0 1px #78e99a44}.online-match-tools .online-room-label{margin:0}.nightmare-ai-badge{font-size:9px;color:#ffcf55;font-weight:900;letter-spacing:.8px}
 `;
