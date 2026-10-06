@@ -18,6 +18,8 @@ import LuckyDraw from "./LuckyDraw";
 
 import Winner from "./Winner";
 
+import AdminDeposits from "./AdminDeposits";
+
 import SamatkarGamingArena from "./SamatkarGamingArena";
 
 import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
@@ -519,6 +521,10 @@ function MainApp() {
 
 
   const navigateToPage = (newPage) => {
+    if (newPage === "adminDeposits" && user?.role !== "admin") {
+      triggerNotification("⛔ Admin access required.", "error");
+      return;
+    }
 
     if (!user && (newPage === "earn" || newPage === "wallet" || newPage === "luckyDraw")) {
 
@@ -680,6 +686,14 @@ function MainApp() {
               {aboutDropdownOpen && (
                 <div style={navStyles.dropdownMenu}>
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
+                    {user?.role === "admin" && (
+                      <button
+                        style={{ ...navStyles.dropdownItem, color: "#7dd3fc", fontWeight: "800" }}
+                        onClick={() => navigateToPage("adminDeposits")}
+                      >
+                        🛡️ Admin Deposits
+                      </button>
+                    )}
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
                   <button style={navStyles.dropdownItem} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
@@ -792,6 +806,14 @@ function MainApp() {
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 <span>{t.wallet}</span></button>
 
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 <span>{t.profile}</span></button>
+            {user?.role === "admin" && (
+              <button
+                style={{ ...navStyles.mobileMenuBtn, borderColor: "rgba(56,189,248,0.35)", color: "#7dd3fc" }}
+                onClick={() => navigateToPage("adminDeposits")}
+              >
+                🛡️ <span>Admin Deposits</span>
+              </button>
+            )}
 
           </div>
 
@@ -1098,6 +1120,13 @@ function MainApp() {
 
 
       {page === "winner" && <Winner />}
+
+      {page === "adminDeposits" && user?.role === "admin" && (
+        <AdminDeposits
+          user={user}
+          navigate={navigateToPage}
+        />
+      )}
 
 
 
@@ -2240,7 +2269,9 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
 
       width: "100%",
 
-      height: "100vh",
+      maxWidth: "100vw",
+
+      height: isMobile ? "100dvh" : "100vh",
 
       minHeight: "100vh",
 
@@ -2252,9 +2283,11 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
 
       justifyContent: "center",
 
-      padding: "24px",
+      padding: isMobile ? "10px" : "24px",
 
       boxSizing: "border-box",
+
+      overflowX: "hidden",
 
       overflowY: "auto",
 
@@ -2288,21 +2321,29 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
 
       zIndex: 2,
 
-      width: "min(100%, 920px)",
+      width: isMobile ? "calc(100vw - 20px)" : "min(100%, 920px)",
 
-      minHeight: "560px",
+      maxWidth: isMobile ? "430px" : "920px",
+
+      minWidth: 0,
+
+      minHeight: isMobile ? "auto" : "560px",
 
       display: "grid",
 
-      gridTemplateColumns: "0.9fr 1.1fr",
+      gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "0.9fr 1.1fr",
 
       background: "rgba(15,23,42,0.94)",
 
       border: "1px solid rgba(148,163,184,0.16)",
 
-      borderRadius: "28px",
+      borderRadius: isMobile ? "18px" : "28px",
 
-      overflow: "hidden",
+      overflowX: "hidden",
+
+      overflowY: isMobile ? "auto" : "hidden",
+
+      boxSizing: "border-box",
 
       boxShadow: "0 30px 90px rgba(0,0,0,0.55), 0 0 60px rgba(14,165,233,0.08)",
 
@@ -2313,6 +2354,12 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
     authBrandPanel: {
 
       position: "relative",
+
+      minWidth: 0,
+
+      width: "100%",
+
+      boxSizing: "border-box",
 
       display: "flex",
 
@@ -2463,6 +2510,12 @@ const getResponsiveNavStyles = (isMobile, isTablet) => {
     },
 
     authFormPanel: {
+
+      minWidth: 0,
+
+      width: "100%",
+
+      boxSizing: "border-box",
 
       display: "flex",
 
@@ -3207,8 +3260,7 @@ export default function App() {
           <Route path="/" element={<MainApp />} />
 
         </Routes>
-
-      </Router>
+</Router>
 
     </LanguageProvider>
 

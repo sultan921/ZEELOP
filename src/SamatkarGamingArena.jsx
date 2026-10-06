@@ -246,11 +246,12 @@ function EntryLoader({title}) {
   useEffect(()=>{const id=setTimeout(()=>setVisible(false),650);return()=>clearTimeout(id);},[]);
   return visible ? <div className="game-entry" role="status"><div className="entry-spinner"/><h2>{title}</h2><p>Preparing your table…</p></div> : null;
 }
-function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en"}) {
+function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",online=false,roomId=null,opponent=null,myUserId="",startingUserId="",serverClockOffset=0,initialTurnEndsAt=0}) {
   const gt=(key)=>arenaText(lang,key);
-  const activePlayers=opponentCount===1?[0,2]:opponentCount===2?[0,1,2]:[0,1,2,3];
+  const activePlayers=online?[0,2]:(opponentCount===1?[0,2]:opponentCount===2?[0,1,2]:[0,1,2,3]);
+  const initialLudoTurn=online?(String(startingUserId||"")===String(myUserId||"")?0:2):0;
   const [pieces,setPieces]=useState(()=>Array.from({length:4},()=>[-1,-1,-1,-1]));
-  const [turn,setTurn]=useState(0), [dice,setDice]=useState(null), [rolling,setRolling]=useState(false);
+  const [turn,setTurn]=useState(initialLudoTurn), [dice,setDice]=useState(null), [rolling,setRolling]=useState(false);
   const [lastDice,setLastDice]=useState([1,1,1,1]);
   const [exitRequested,setExitRequested]=useState(false), [winner,setWinner]=useState(null);
   const [message,setMessage]=useState(gt('rollBegin'));
@@ -271,11 +272,14 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en"}) {
       .filter(i=>i!==null);
     return choices.length ? secureRandomChoice(choices) : null;
   };
-  const move=(i)=>{
+  const move=(i,remote=false)=>{
     const st=state.current;
     if(busy.current || st.winner!==null || !st.dice || !legal(st.pieces[st.turn][i],st.dice))return;
     busy.current=true;setMoving(true);gameSound("click",.07);
     const player=st.turn, roll=st.dice, from=st.pieces[player][i], target=from<0?0:from+roll;
+    if(online&&roomId&&!remote&&player===0){
+      arenaSocket.emit("game_event",{roomId,type:"ludo_move",payload:{userId:String(myUserId||""),tokenIndex:i,dice:roll}});
+    }
     let step=from;
     const tick=()=>{
       step=step<0?0:step+1;
@@ -297,17 +301,20 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en"}) {
       advance(roll===6||captured||target===57);
     };tick();
   };
-  const roll=()=>{
+  const roll=(remoteDice=null,remote=false)=>{
     const st=state.current;if(busy.current||st.dice||st.winner!==null)return;
     busy.current=true;setRolling(true);gameSound("dice",.08);let count=0;
     const animate=()=>{setLastDice(prev=>prev.map((v,p)=>p===st.turn?secureRandomInt(1,6):v));
       if(++count<8){later(animate,55);return;}
-      const d=secureRandomInt(1,6);setLastDice(prev=>prev.map((v,p)=>p===st.turn?d:v));setDice(d);setRolling(false);busy.current=false;
+      const d=Number.isInteger(remoteDice)?remoteDice:secureRandomInt(1,6);setLastDice(prev=>prev.map((v,p)=>p===st.turn?d:v));setDice(d);setRolling(false);busy.current=false;
+      if(online&&roomId&&!remote&&st.turn===0){
+        arenaSocket.emit("game_event",{roomId,type:"ludo_roll",payload:{userId:String(myUserId||""),dice:d}});
+      }
       if(!st.pieces[st.turn].some(p=>legal(p,d))){setMessage(gt('noMove'));later(()=>advance(d===6),400);}else setMessage(st.turn===0?gt('selectToken'):gt('computerChoosing'));
     };animate();
   };
   useEffect(()=>{
-    if(turn===0||winner!==null||rolling||moving)return;
+    if(online||turn===0||winner!==null||rolling||moving)return;
     if(dice===null){const id=setTimeout(roll,45);return()=>clearTimeout(id);}
     const id=setTimeout(()=>{
       const choices=pieces[turn].map((p,i)=>({p,i})).filter(({p})=>legal(p,dice));
@@ -325,39 +332,60 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en"}) {
     },45);return()=>clearTimeout(id);
   },[turn,dice,rolling,moving,winner,pieces]);
   useEffect(()=>{
-    if(winner!==null)return;
-    setTurnSeconds(40);
-    const id=setInterval(()=>setTurnSeconds(sec=>{
-      if(sec<=1){
-        clearInterval(id);
-        if(turn===0 && !rolling && !moving){
-          const st=state.current;
-
-          // Dice already rolled: use that exact number and automatically
-          // move one random legal token if the player did not click in time.
-          if(st?.dice){
-            const autoIndex=randomLegalToken(0,st.dice);
-            if(autoIndex!==null){
-              setMessage(gt('timeMove'));
-              later(()=>move(autoIndex),0);
-              return 0;
-            }
-          }
-
-          // No dice / no legal move means the human turn expires.
-          setMessage(gt('timeSkip'));
-          setDice(null);busy.current=false;setRolling(false);setMoving(false);
-          setTurn(t=>activePlayers[(activePlayers.indexOf(t)+1)%activePlayers.length]);
-        }
-        return 0;
+    if(!online||!roomId)return;
+    const onGameEvent=(event={})=>{
+      if(String(event.roomId||"")!==String(roomId))return;
+      const {type,payload={}}=event;
+      if(String(payload.userId||"")===String(myUserId||""))return;
+      if(type==="ludo_roll"){
+        if(busy.current||winner!==null)return;
+        setTurn(2);
+        state.current={...state.current,turn:2};
+        roll(clamp(Math.floor(Number(payload.dice)||1),1,6),true);
+      }else if(type==="ludo_move"){
+        const tokenIndex=Math.floor(Number(payload.tokenIndex));
+        if(tokenIndex<0||tokenIndex>3)return;
+        setTurn(2);
+        state.current={...state.current,turn:2,dice:clamp(Math.floor(Number(payload.dice)||1),1,6)};
+        setDice(state.current.dice);
+        setTimeout(()=>move(tokenIndex,true),0);
+      }else if(type==="ludo_turn_timeout"){
+        setTurn(0);setDice(null);busy.current=false;setRolling(false);setMoving(false);
+        setMessage("⏱️ Opponent time over — your turn.");
       }
-      return sec-1;
-    }),1000);
+    };
+    arenaSocket.on("game_event",onGameEvent);
+    return()=>arenaSocket.off("game_event",onGameEvent);
+  },[online,roomId,myUserId,winner]);
+
+  const turnDeadlineRef=useRef(Number(initialTurnEndsAt)||0);
+  const serverNow=()=>Date.now()+Number(serverClockOffset||0);
+  useEffect(()=>{
+    if(winner!==null)return;
+    turnDeadlineRef.current=serverNow()+40000;
+    const tick=()=>{
+      const remaining=Math.max(0,Math.ceil((turnDeadlineRef.current-serverNow())/1000));
+      setTurnSeconds(remaining);
+      if(remaining>0)return;
+      clearInterval(id);
+      if(turn===0 && !rolling && !moving){
+        const st=state.current;
+        if(st?.dice){
+          const autoIndex=randomLegalToken(0,st.dice);
+          if(autoIndex!==null){setMessage(gt('timeMove'));later(()=>move(autoIndex),0);return;}
+        }
+        setMessage(gt('timeSkip'));setDice(null);busy.current=false;setRolling(false);setMoving(false);
+        setTurn(t=>activePlayers[(activePlayers.indexOf(t)+1)%activePlayers.length]);
+        if(online&&roomId) arenaSocket.emit("game_event",{roomId,type:"ludo_turn_timeout",payload:{userId:String(myUserId||"")}});
+      }
+    };
+    tick();
+    const id=setInterval(tick,250);
     return()=>clearInterval(id);
   },[turn,winner]);
   const panel=(p)=> !activePlayers.includes(p) ? <div key={p} className="ludo-player inactive-player" style={{'--player-color':LUDO_PLAYERS[p].color}}><span className="inactive-dot"/><div className="player-name">{gt("emptySeat")}<small>{gt("notMatch")}</small></div></div> : <div key={p} className={`ludo-player ludo-player-${p} ${turn===p?'current-player':''}`} style={{'--player-color':LUDO_PLAYERS[p].color}}>
-    <div className="timed-avatar"><PlayerAvatar user={p===0?user:null} name={p===0?(user?.name||'You'):LUDO_PLAYERS[p].name} color={LUDO_PLAYERS[p].color} active={turn===p}/>{turn===p&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
-    <div className="player-name">{p===0?(user?.name||'You'):LUDO_PLAYERS[p].name}<small>{pieces[p].filter(v=>v===57).length}/4 home</small></div>
+    <div className="timed-avatar"><PlayerAvatar user={p===0?user:(online&&p===2?opponent:null)} name={p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)} color={LUDO_PLAYERS[p].color} active={turn===p}/>{turn===p&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+    <div className="player-name">{p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)}<small>{pieces[p].filter(v=>v===57).length}/4 home</small></div>
     <button className={`corner-dice ${turn===p&&rolling?'dice-rolling':''}`} disabled={p!==0||turn!==0||rolling||moving||dice!==null||winner!==null} onClick={roll} aria-label="Roll dice"><DiceFace value={lastDice[p]}/></button>
   </div>;
   return <div className="arena-game-page professional-ludo">
@@ -570,9 +598,21 @@ function PoolGame({
   onFinish,
   onBack,
   betAmount,
+  online=false,
+  roomId=null,
+  opponent=null,
+  myUserId="",
+  startingUserId="",
+  serverClockOffset=0,
+  initialTurnEndsAt=0,
 }) {
   const gt=(key)=>arenaText(lang,key);
   const canvasRef = useRef(null);
+  const onlineRef = useRef(Boolean(online && roomId));
+  const lastPoolSyncRef = useRef(0);
+  const lastAimSyncRef = useRef(0);
+  const remoteApplyingRef = useRef(false);
+  useEffect(()=>{ onlineRef.current=Boolean(online && roomId); },[online,roomId]);
 
   const ballsRef = useRef(
     createPoolBalls()
@@ -590,7 +630,10 @@ function PoolGame({
   const movingRef = useRef(false);
   const aimingRef = useRef(false);
 
-  const turnRef = useRef("user");
+  const initialPoolTurn = online
+    ? (String(startingUserId||"")===String(myUserId||"") ? "user" : "ai")
+    : (secureRandomInt(0,1)===0 ? "user" : "ai");
+  const turnRef = useRef(initialPoolTurn);
 
   const winnerRef = useRef(null);
 
@@ -630,7 +673,7 @@ function PoolGame({
     useRef(false);
 
   const [turn, setTurn] = useState(
-    "user"
+    initialPoolTurn
   );
 
   const [groups, setGroups] = useState({
@@ -717,24 +760,27 @@ function PoolGame({
       winner;
   }, [winner]);
 
+  const poolTurnDeadlineRef=useRef(Number(initialTurnEndsAt)||0);
+  const poolServerNow=()=>Date.now()+Number(serverClockOffset||0);
   useEffect(()=>{
     if(winner || shotActive)return;
-    setTurnSeconds(40);
-    const id=setInterval(()=>setTurnSeconds(sec=>{
-      if(sec<=1){
-        clearInterval(id);
-        if(turnRef.current==='user' && !movingRef.current){
-          turnRef.current='ai';
-          setTurn('ai');
-          setMessage('⏱️ 40 seconds over — computer gets the turn.');
-          aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),60);
-        } else if(turnRef.current==='ai' && !movingRef.current){
-          aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),20);
-        }
-        return 0;
+    poolTurnDeadlineRef.current=poolServerNow()+40000;
+    const tick=()=>{
+      const remaining=Math.max(0,Math.ceil((poolTurnDeadlineRef.current-poolServerNow())/1000));
+      setTurnSeconds(remaining);
+      if(remaining>0)return;
+      clearInterval(id);
+      if(turnRef.current==='user' && !movingRef.current){
+        turnRef.current='ai';setTurn('ai');
+        setMessage(onlineRef.current?'⏱️ Time over — opponent turn.':'⏱️ 40 seconds over — computer gets the turn.');
+        if(onlineRef.current&&roomId) arenaSocket.emit("game_event",{roomId,type:"pool_turn_timeout",payload:{userId:String(myUserId||"")}});
+        else aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),60);
+      } else if(turnRef.current==='ai'&&!movingRef.current&&!onlineRef.current){
+        aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),20);
       }
-      return sec-1;
-    }),1000);
+    };
+    tick();
+    const id=setInterval(tick,250);
     return()=>clearInterval(id);
   },[turn,shotNumber,winner,shotActive]);
 
@@ -1100,7 +1146,7 @@ function PoolGame({
           false;
 
         if (
-          opponent === "ai"
+          opponent === "ai" && !onlineRef.current
         ) {
           aiTimerRef.current =
             setTimeout(() => {
@@ -1168,7 +1214,7 @@ function PoolGame({
       );
 
       if (
-        nextPlayer === "ai"
+        nextPlayer === "ai" && !onlineRef.current
       ) {
         aiTimerRef.current =
           setTimeout(() => {
@@ -1486,6 +1532,21 @@ function PoolGame({
 
       }
       if (anyMoving) {
+        if(onlineRef.current && roomId && turnRef.current==="user"){
+          const now=performance.now();
+          if(now-lastPoolSyncRef.current>=80){
+            lastPoolSyncRef.current=now;
+            arenaSocket.emit("game_event",{
+              roomId,
+              type:"pool_state",
+              payload:{
+                userId:String(myUserId||""),
+                balls:balls.map(b=>({id:b.id,number:b.number,type:b.type,x:b.x,y:b.y,vx:b.vx,vy:b.vy,pocketed:b.pocketed})),
+                moving:true
+              }
+            });
+          }
+        }
         animationRef.current =
           requestAnimationFrame(
             physicsStep
@@ -1497,6 +1558,17 @@ function PoolGame({
       /* Small delay gives pockets
          time to settle visually. */
 
+      if(onlineRef.current && roomId && turnRef.current==="user"){
+        arenaSocket.emit("game_event",{
+          roomId,
+          type:"pool_state",
+          payload:{
+            userId:String(myUserId||""),
+            balls:balls.map(b=>({id:b.id,number:b.number,type:b.type,x:b.x,y:b.y,vx:0,vy:0,pocketed:b.pocketed})),
+            moving:false
+          }
+        });
+      }
       setTimeout(() => {
         if (aliveRef.current) finishShot();
       }, 55);
@@ -1509,12 +1581,12 @@ function PoolGame({
   ===================================================== */
 
   const shoot = useCallback(
-    (angle, strength) => {
+    (angle, strength, remote=false) => {
       if (
         movingRef.current ||
         winnerRef.current ||
-        turnRef.current !==
-          "user" ||
+        (!remote && turnRef.current !==
+          "user") ||
         ballInHandRef.current
       ) {
         return;
@@ -1546,6 +1618,18 @@ function PoolGame({
         Math.sin(angle) *
         strength;
 
+      if(onlineRef.current && roomId && !remote){
+        arenaSocket.emit("game_event",{
+          roomId,
+          type:"pool_shot",
+          payload:{
+            userId:String(myUserId||""),
+            angle:Number(angle),
+            strength:Number(strength),
+            shotNumber:Number(shotNumber)
+          }
+        });
+      }
       gameSound("shoot",.10);
       movingRef.current = true;
       setShotActive(true);
@@ -1571,6 +1655,7 @@ function PoolGame({
     () => {
       if (
         winnerRef.current ||
+        onlineRef.current ||
         turnRef.current !== "ai" ||
         movingRef.current ||
         aiThinkingRef.current.active
@@ -1945,6 +2030,81 @@ function PoolGame({
 
   aiShotRef.current = aiTakeShot;
 
+  // Fair/random break: if AI was randomly selected to start, begin its turn.
+  useEffect(()=>{
+    if(online || turn!=="ai" || winner || movingRef.current)return;
+    const id=setTimeout(()=>aiShotRef.current?.(),120);
+    return()=>clearTimeout(id);
+  },[online,turn,winner]);
+
+  useEffect(()=>{
+    if(!online || !roomId)return;
+    const onGameEvent=(event={})=>{
+      if(String(event.roomId||"")!==String(roomId))return;
+      const {type,payload={}}=event;
+      if(String(payload.userId||"")===String(myUserId||""))return;
+
+      if(type==="pool_aim"){
+        if(turnRef.current!=="ai" || movingRef.current)return;
+        if(Number.isFinite(Number(payload.angle))) cueAngleRef.current=Number(payload.angle);
+        if(Number.isFinite(Number(payload.power))){
+          aiThinkingRef.current.active=true;
+          aiThinkingRef.current.angle=Number(payload.angle)||0;
+          aiThinkingRef.current.power=clamp(Number(payload.power)||50,5,100);
+          setAiVisualPower(aiThinkingRef.current.power);
+        }
+        return;
+      }
+
+      if(type==="pool_shot"){
+        if(movingRef.current || winnerRef.current)return;
+        aiThinkingRef.current.active=false;
+        turnRef.current="ai";
+        setTurn("ai");
+        setMessage(`🎱 ${opponent?.name||"Opponent"} shot in progress...`);
+        remoteApplyingRef.current=true;
+        shoot(Number(payload.angle)||0,Number(payload.strength)||8,true);
+        remoteApplyingRef.current=false;
+        return;
+      }
+
+      if(type==="pool_state" && Array.isArray(payload.balls)){
+        const byId=new Map(payload.balls.map(b=>[Number(b.id),b]));
+        ballsRef.current.forEach(ball=>{
+          const next=byId.get(Number(ball.id));
+          if(!next)return;
+          ball.x=Number(next.x); ball.y=Number(next.y);
+          ball.vx=Number(next.vx)||0; ball.vy=Number(next.vy)||0;
+          ball.pocketed=Boolean(next.pocketed);
+        });
+        setPocketedNumbers(ballsRef.current.filter(b=>b.pocketed&&b.type!=="cue").map(b=>b.number));
+        return;
+      }
+
+      if(type==="pool_turn_timeout"){
+        if(turnRef.current==="ai" && !movingRef.current){
+          turnRef.current="user";
+          setTurn("user");
+          setMessage("⏱️ Opponent time over — your turn.");
+        }
+      }
+    };
+    arenaSocket.on("game_event",onGameEvent);
+    return()=>arenaSocket.off("game_event",onGameEvent);
+  },[online,roomId,myUserId,opponent?.name,shoot]);
+
+  const broadcastAim=useCallback(()=>{
+    if(!onlineRef.current||!roomId||turnRef.current!=="user"||movingRef.current)return;
+    const now=performance.now();
+    if(now-lastAimSyncRef.current<60)return;
+    lastAimSyncRef.current=now;
+    arenaSocket.emit("game_event",{
+      roomId,
+      type:"pool_aim",
+      payload:{userId:String(myUserId||""),angle:cueAngleRef.current,power:powerRef.current}
+    });
+  },[roomId,myUserId]);
+
   const handlePointerDown=useCallback(event=>{
     if(movingRef.current||winnerRef.current||turnRef.current!=='user')return;
     event.preventDefault();
@@ -1971,7 +2131,8 @@ function PoolGame({
       // One-finger aiming: slide anywhere on the table to rotate the cue.
       cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
     }
-  },[getCanvasPoint]);
+    broadcastAim();
+  },[getCanvasPoint,broadcastAim]);
   const handlePointerUp=useCallback(event=>{
     const drag=dragRef.current;dragRef.current=null;aimingRef.current=false;
     if(drag?.nearCue&&drag.moved)shoot(cueAngleRef.current,2.4+powerRef.current*.155);
@@ -1986,7 +2147,8 @@ function PoolGame({
     powerRef.current=next;
     setPower(next);
     aimingRef.current=true;
-  },[]);
+    broadcastAim();
+  },[broadcastAim]);
 
   const handleCueControllerDown=useCallback((event)=>{
     if(turnRef.current!=='user'||movingRef.current||ballInHandRef.current||winnerRef.current)return;
@@ -2202,15 +2364,15 @@ function PoolGame({
         </div>
         <div className="pool-match-prize"><svg viewBox="0 0 48 32" aria-hidden="true"><g fill="#facc15" stroke="#b77913" strokeWidth="1.5"><ellipse cx="18" cy="22" rx="10" ry="4"/><ellipse cx="18" cy="17" rx="10" ry="4"/><ellipse cx="18" cy="12" rx="10" ry="4"/><ellipse cx="31" cy="23" rx="9" ry="4"/><ellipse cx="31" cy="18" rx="9" ry="4"/></g></svg><strong>{Math.floor(betAmount*2*0.90)}</strong><small>WINNER AFTER 10% FEE</small></div>
         <div className={`pool-contender pool-contender-ai ${turn==='ai'?'contender-active':''}`}>
-          <div className="timed-avatar"><PlayerAvatar name="Computer" color="#67d8ff" active={turn==='ai'}/>{turn==='ai'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
-          <div className="pool-contender-details"><div className="pool-nameplate"><span>Computer</span><small>{winner?'Finished':turn==='ai'?'Playing':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Computer remaining balls">{remainingFor('ai')}</div></div>
+          <div className="timed-avatar"><PlayerAvatar user={online?opponent:null} name={online?(opponent?.name||'Opponent'):'Computer'} color="#67d8ff" active={turn==='ai'}/>{turn==='ai'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+          <div className="pool-contender-details"><div className="pool-nameplate"><span>{online?(opponent?.name||'Opponent'):'Computer'}</span><small>{winner?'Finished':turn==='ai'?'Playing':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Opponent remaining balls">{remainingFor('ai')}</div></div>
         </div>
         <button className="pool-icon-button" title="Fullscreen" aria-label="Fullscreen" onClick={fullScreen}><svg viewBox="0 0 32 32"><path d="M5 12V5h7M20 5h7v7M27 20v7h-7M12 27H5v-7" fill="none" stroke="currentColor" strokeWidth="2.5"/></svg></button>
       </header>
       <div className="pool-topline"><strong>8 Ball Pool</strong><span>{groups.user?`${groups.user==='solids'?'Solids':'Stripes'} · Shot ${shotNumber}`:'Open table · Break for groups'}</span><span>Stake {betAmount} coins</span></div>
       <main className="pool-playfield">
         <div className={`pool-power-column cue-pull-controller ${turn==='ai'?'ai-cue-controller':''}`}>
-          <label>{turn==='ai'?'AI CUE':'PULL CUE'}</label>
+          <label>{turn==='ai'?(online?'OPPONENT CUE':'AI CUE'):'PULL CUE'}</label>
           <div
             ref={cueControllerRef}
             className={`cue-pull-rail ${cueControllerPulling?'is-pulling':''}`}
@@ -2230,10 +2392,10 @@ function PoolGame({
             <div className="cue-controller-glow"/>
           </div>
           <strong>{turn==='ai'?aiVisualPower:power}%</strong>
-          <small>{turn==='ai'?'Computer aiming':'Pull ↓ · Release'}</small>
+          <small>{turn==='ai'?(online?'Opponent aiming':'Computer aiming'):'Pull ↓ · Release'}</small>
         </div>
         <div className="pool-table-stage"><canvas ref={canvasRef} width={POOL_WIDTH} height={POOL_HEIGHT} className="pool-pro-canvas" aria-label="8 Ball Pool table. Aim on the table, then pull the side cue down and release to shoot. You can also drag backwards from the white ball." onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={()=>{aimingRef.current=false;dragRef.current=null;}}/></div>
-        <aside className="pool-pocket-rack" aria-label="Pocketed balls"><div className="rack-label">POTTED</div><div className="rack-channel">{pocketedNumbers.length?pocketedNumbers.map(n=><PoolBallBadge key={n} number={n}/>):<div className="empty-rack-lines"/>}</div><button className="pool-icon-button" aria-label="How to play" title="How to play" onClick={()=>setHelpOpen(true)}>?</button></aside>
+        <aside className="pool-pocket-rack" aria-label="Pocketed balls"><div className="rack-label">POTTED</div><div className="rack-channel">{pocketedNumbers.length?pocketedNumbers.slice(-5).map(n=><PoolBallBadge key={n} number={n}/>):<div className="empty-rack-lines"/>}</div><button className="pool-icon-button" aria-label="How to play" title="How to play" onClick={()=>setHelpOpen(true)}>?</button></aside>
       </main>
       <footer className={`pool-shot-footer ${ballInHand?'pool-hand-footer':''}`}><span className="pool-status-dot"/><p aria-live="polite">{ballInHand&&turn==='user'?'Ball in hand: tap a clear place on the table.':message}</p><button onClick={()=>setHelpOpen(true)}>How to play</button><span className="pool-rotate-hint">Landscape = larger table</span></footer>
     </div>
@@ -2519,7 +2681,12 @@ export default function SamatkarGamingArena({
       const opponent=String(p1?.id||"")===myId?p2:p1;
       const finalBet=Math.max(1,Math.floor(Number(payload?.betCoins)||1));
       const selectedGame=String(payload?.game||"ludo").toLowerCase();
-      setOnlineMatch({...payload, opponent});
+      const starterPool=[p1,p2].filter(Boolean);
+      const roomSeed=String(payload?.roomId||"").split("").reduce((a,ch)=>((a*33)^ch.charCodeAt(0))>>>0,5381);
+      const startingUserId=String(payload?.startingUserId || starterPool[roomSeed%Math.max(1,starterPool.length)]?.id || p1?.id || "");
+      const serverClockOffset=Number(payload?.serverNow)||0 ? Number(payload.serverNow)-Date.now() : 0;
+      const initialTurnEndsAt=Number(payload?.turnEndsAt)||((Date.now()+serverClockOffset)+40000);
+      setOnlineMatch({...payload, opponent, startingUserId});
 
       // Match milte hi dono browsers par existing game screen open karo.
       // Coin stake sirf match start par ek martaba deduct hota hai.
@@ -2546,7 +2713,10 @@ export default function SamatkarGamingArena({
         online:true,
         roomId:payload?.roomId,
         opponent,
-        matchType:payload?.matchType||"online"
+        matchType:payload?.matchType||"online",
+        startingUserId,
+        serverClockOffset,
+        initialTurnEndsAt
       });
       showNotice(`🎮 ${t("matchFound")}: ${opponent?.name || t("opponent")}`, "success");
     };
@@ -2839,8 +3009,19 @@ export default function SamatkarGamingArena({
       return (
         <LudoGame user={user} lang={lang} opponentCount={game.opponentCount}
           betAmount={game.bet}
+          online={Boolean(game.online)}
+          roomId={game.roomId}
+          opponent={game.opponent}
+          myUserId={String(user?.id || user?._id || "")}
+          startingUserId={game.startingUserId}
+          serverClockOffset={game.serverClockOffset}
+          initialTurnEndsAt={game.initialTurnEndsAt}
           onFinish={finishMatch}
-          onBack={() => {settledMatchRef.current=true;setGame(null);}}
+          onBack={() => {
+            if(game.online&&game.roomId) arenaSocket.emit("leave_game_room",{roomId:game.roomId});
+            settledMatchRef.current=true;
+            setGame(null);
+          }}
         />
       );
     }
@@ -2849,8 +3030,19 @@ export default function SamatkarGamingArena({
       return (
         <PoolGame user={user} lang={lang}
           betAmount={game.bet}
+          online={Boolean(game.online)}
+          roomId={game.roomId}
+          opponent={game.opponent}
+          myUserId={String(user?.id || user?._id || "")}
+          startingUserId={game.startingUserId}
+          serverClockOffset={game.serverClockOffset}
+          initialTurnEndsAt={game.initialTurnEndsAt}
           onFinish={finishMatch}
-          onBack={() => {settledMatchRef.current=true;setGame(null);}}
+          onBack={() => {
+            if(game.online&&game.roomId) arenaSocket.emit("leave_game_room",{roomId:game.roomId});
+            settledMatchRef.current=true;
+            setGame(null);
+          }}
         />
       );
     }
@@ -5198,4 +5390,40 @@ body.pool-game-active [class*="ad-container"],body.pool-game-active [class*="ban
 
 
 .online-match-tools{margin:14px 0;padding:12px;border:1px solid #466252;border-radius:14px;background:#081720}.online-action-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.online-action-tabs button{padding:10px 6px;border-radius:10px;border:1px solid #456071;background:#102334;color:#d9efff;font-weight:800;cursor:pointer;font-size:11px}.online-action-tabs button.selected{border-color:#78e99a;background:#19432e;box-shadow:0 0 0 1px #78e99a44}.online-match-tools .online-room-label{margin:0}.nightmare-ai-badge{font-size:9px;color:#ffcf55;font-weight:900;letter-spacing:.8px}
+`;
+
+const REALTIME_POOL_PATCH = `
+/* ===== REALTIME POOL + FIXED POTTED TRAY PATCH ===== */
+
+.professional-pool .pool-pocket-rack {
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+.professional-pool .rack-channel {
+  min-height: 0 !important;
+  height: 140px !important;
+  max-height: 140px !important;
+  flex: 0 0 auto !important;
+  overflow: hidden !important;
+}
+
+@media (max-width: 760px) {
+  .professional-pool .rack-channel {
+    height: 100px !important;
+    max-height: 100px !important;
+  }
+}
+
+html.pool-game-active .ad-banner,
+html.pool-game-active [class*="adsterra"],
+html.pool-game-active [id*="adsterra"],
+html.pool-game-active iframe[src*="adsterra"],
+body.pool-game-active .ad-banner,
+body.pool-game-active [class*="adsterra"],
+body.pool-game-active [id*="adsterra"] {
+  display: none !important;
+}
 `;
