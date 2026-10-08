@@ -75,7 +75,7 @@ function sleep(ms) {
 ========================================================= */
 let GAME_AUDIO_CTX = null;
 let GAME_AUDIO_LAST = {};
-function gameSound(type, volume = 0.12) {
+function gameSound(type, volume = 0.18) {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -83,18 +83,49 @@ function gameSound(type, volume = 0.12) {
     const ctx = GAME_AUDIO_CTX;
     if (ctx.state === "suspended") ctx.resume();
     const nowMs = performance.now();
-    const throttle = type === "pool-hit" || type === "pool-rail" ? 45 : 0;
+
+    // Short synthetic crowd celebration: an "aaah / oooh" style winner sound.
+    // No external audio file is required.
+    if(type==="cheer"){
+      const master=ctx.createGain();
+      master.gain.setValueAtTime(0.0001,ctx.currentTime);
+      master.gain.exponentialRampToValueAtTime(Math.max(0.02,volume),ctx.currentTime+0.05);
+      master.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+1.15);
+      master.connect(ctx.destination);
+
+      [185,225,270,330].forEach((base,index)=>{
+        const osc=ctx.createOscillator();
+        const voiceGain=ctx.createGain();
+        osc.type=index%2===0?"sine":"triangle";
+        osc.frequency.setValueAtTime(base,ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(base*(1.35+index*.05),ctx.currentTime+.42);
+        osc.frequency.exponentialRampToValueAtTime(base*.92,ctx.currentTime+1.05);
+        voiceGain.gain.setValueAtTime(.16/(index+1),ctx.currentTime);
+        voiceGain.gain.exponentialRampToValueAtTime(.035,ctx.currentTime+1.08);
+        osc.connect(voiceGain);
+        voiceGain.connect(master);
+        osc.start(ctx.currentTime+index*.025);
+        osc.stop(ctx.currentTime+1.12);
+      });
+
+      return;
+    }
+
+    const throttle = type === "pool-hit" || type === "pool-rail" ? 24 : 0;
     if (throttle && nowMs - (GAME_AUDIO_LAST[type] || 0) < throttle) return;
     GAME_AUDIO_LAST[type] = nowMs;
     const presets = {
       click:[520,0.035,"sine"], dice:[155,0.07,"square"], step:[330,0.035,"triangle"],
       capture:[190,0.12,"sawtooth"], win:[740,0.20,"triangle"], shoot:[105,0.08,"triangle"],
-      "pool-hit":[245,0.035,"sine"], "pool-rail":[145,0.035,"triangle"], pocket:[92,0.13,"sine"], foul:[125,0.16,"sawtooth"]
+      "pool-hit":[245,0.055,"sine"], "pool-rail":[145,0.045,"triangle"], pocket:[92,0.15,"sine"], foul:[125,0.16,"sawtooth"],
+      "your-turn":[760,0.16,"sine"], "opponent-turn":[360,0.14,"triangle"], tick:[980,0.045,"square"]
     };
     const [freq,duration,wave] = presets[type] || presets.click;
     const osc=ctx.createOscillator(), gain=ctx.createGain();
     osc.type=wave; osc.frequency.setValueAtTime(freq,ctx.currentTime);
     if(type==='win') osc.frequency.exponentialRampToValueAtTime(1180,ctx.currentTime+duration);
+    if(type==='your-turn') osc.frequency.exponentialRampToValueAtTime(1180,ctx.currentTime+duration);
+    if(type==='opponent-turn') osc.frequency.exponentialRampToValueAtTime(240,ctx.currentTime+duration);
     gain.gain.setValueAtTime(0.0001,ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.001,volume),ctx.currentTime+0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+duration);
@@ -230,6 +261,23 @@ const LUDO_PLAYERS = [
   {color:'#f74448', name:'Computer 2', start:26, home:[10,10], lane:[[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]]},
   {color:'#4e87e8', name:'Computer 3', start:39, home:[10,2], lane:[[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]]},
 ];
+
+// Ludo route matching the board rule shown in the reference diagram:
+//
+// progress 0..50  = legal outer-track route for that player.
+// The next outer square (one square immediately before that player's START)
+// is NOT VALID for that player only.
+// progress 51..56 = that player's own six-cell HOME lane.
+//
+// Other players may still use that outer square normally.
+const LUDO_LAST_TRACK_STEP = 50;
+const LUDO_HOME_START_STEP = 51;
+const LUDO_FINISH_STEP = 56;
+
+// Global track index of the square that is forbidden only for a given player.
+// Example: player start index 0 -> forbidden outer index 51.
+const ludoForbiddenTrackIndex = (player) =>
+  (LUDO_PLAYERS[player].start - 1 + LUDO_TRACK.length) % LUDO_TRACK.length;
 function PlayerAvatar({user, name, color, active=false}) {
   const [failed,setFailed]=useState(false);
   const src=user?.profilePic || user?.profilePicture || user?.avatar_url || user?.photoURL || user?.picture || user?.photo || user?.avatarUrl || user?.profileImage || user?.avatar;
@@ -237,6 +285,45 @@ function PlayerAvatar({user, name, color, active=false}) {
     {src && !failed ? <img src={src} alt={name} onError={()=>setFailed(true)}/> : user ? <span>{(name||'P').slice(0,1).toUpperCase()}</span> : <svg viewBox="0 0 80 80" role="img" aria-label="Computer avatar"><path d="M39 12v11" stroke="#9ddfff" strokeWidth="4"/><circle cx="39" cy="11" r="5" fill="var(--player-color)"/><rect x="17" y="25" width="46" height="39" rx="13" fill="#b6cadd" stroke="#4f708c" strokeWidth="3"/><rect x="23" y="33" width="34" height="17" rx="6" fill="#182d43"/><circle cx="31" cy="41" r="4" fill="var(--player-color)"/><circle cx="49" cy="41" r="4" fill="var(--player-color)"/><path d="M31 56h18" stroke="#476580" strokeWidth="3" strokeLinecap="round"/><rect x="10" y="37" width="7" height="16" rx="3" fill="#6386a3"/><rect x="63" y="37" width="7" height="16" rx="3" fill="#6386a3"/></svg>}
   </div>;
 }
+
+const GAME_REACTIONS = [
+  "😂","🤣","😎","😡","😤","😭","😮",
+  "👏","🔥","❤️","👍","💪","🤝","😈","🤯"
+];
+
+function ReactionPicker({ open, onSelect }) {
+  if (!open) return null;
+
+  return (
+    <div className="game-reaction-picker" role="menu" aria-label="Send reaction">
+      {GAME_REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          className="game-reaction-choice"
+          onClick={() => onSelect(emoji)}
+          aria-label={`Send ${emoji}`}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReactionBubble({ emoji, side = "right" }) {
+  if (!emoji) return null;
+
+  return (
+    <span
+      className={`game-reaction-bubble reaction-${side}`}
+      aria-live="polite"
+    >
+      {emoji}
+    </span>
+  );
+}
+
 function DiceFace({value}) {
   const dots = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]}[value] || [4];
   return <svg viewBox="0 0 60 60" width="100%" height="100%" aria-hidden="true">{dots.map(i=><circle key={i} cx={13+(i%3)*17} cy={13+Math.floor(i/3)*17} r="5" fill="#18232d"/>)}</svg>;
@@ -248,6 +335,7 @@ function EntryLoader({title}) {
 }
 function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",online=false,roomId=null,opponent=null,myUserId="",startingUserId="",serverClockOffset=0,initialTurnEndsAt=0}) {
   const gt=(key)=>arenaText(lang,key);
+  const ludoRootRef=useRef(null);
   const activePlayers=online?[0,2]:(opponentCount===1?[0,2]:opponentCount===2?[0,1,2]:[0,1,2,3]);
   const initialLudoTurn=online?(String(startingUserId||"")===String(myUserId||"")?0:2):0;
   const [pieces,setPieces]=useState(()=>Array.from({length:4},()=>[-1,-1,-1,-1]));
@@ -257,13 +345,139 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
   const [message,setMessage]=useState(gt('rollBegin'));
   const [moving,setMoving]=useState(false);
   const [turnSeconds,setTurnSeconds]=useState(40);
+  const [reactionPickerOpen,setReactionPickerOpen]=useState(false);
+  const [myReaction,setMyReaction]=useState("");
+  const [opponentReaction,setOpponentReaction]=useState("");
+  const myReactionTimerRef=useRef(null);
+  const opponentReactionTimerRef=useRef(null);
   const timers=useRef(new Set()), busy=useRef(false), state=useRef(null), paid=useRef(false);
   state.current={pieces,turn,dice,winner,rolling,moving,turnSeconds};
+
+  // Ludo is an immersive fixed game screen on both desktop and mobile.
+  // Native browser fullscreen is requested on the first user gesture because
+  // browsers do not allow automatic fullscreen without interaction.
+  useEffect(()=>{
+    const html=document.documentElement;
+    const body=document.body;
+    const previous={
+      htmlOverflow:html.style.overflow,
+      bodyOverflow:body.style.overflow,
+      bodyTouchAction:body.style.touchAction,
+      bodyOverscroll:body.style.overscrollBehavior
+    };
+
+    html.classList.add("ludo-game-active");
+    body.classList.add("ludo-game-active");
+    html.style.overflow="hidden";
+    body.style.overflow="hidden";
+    body.style.overscrollBehavior="none";
+
+    const enterFullscreen=async()=>{
+      const root=ludoRootRef.current;
+      if(!root || document.fullscreenElement)return;
+      try{
+        if(root.requestFullscreen){
+          await root.requestFullscreen({navigationUI:"hide"});
+        }
+      }catch{}
+    };
+
+    const firstGesture=()=>{enterFullscreen();};
+    window.addEventListener("pointerdown",firstGesture,{once:true,passive:true});
+
+    return()=>{
+      window.removeEventListener("pointerdown",firstGesture);
+      html.classList.remove("ludo-game-active");
+      body.classList.remove("ludo-game-active");
+      html.style.overflow=previous.htmlOverflow;
+      body.style.overflow=previous.bodyOverflow;
+      body.style.touchAction=previous.bodyTouchAction;
+      body.style.overscrollBehavior=previous.bodyOverscroll;
+
+      try{
+        if(document.fullscreenElement===ludoRootRef.current){
+          document.exitFullscreen();
+        }
+      }catch{}
+    };
+  },[]);
+
+  const toggleLudoFullscreen=async()=>{
+    const root=ludoRootRef.current;
+    if(!root)return;
+    try{
+      if(document.fullscreenElement===root){
+        await document.exitFullscreen();
+      }else if(root.requestFullscreen){
+        await root.requestFullscreen({navigationUI:"hide"});
+      }
+    }catch{}
+  };
+  const lastLudoTurnSoundRef=useRef(null);
+  useEffect(()=>{
+    if(winner!==null || lastLudoTurnSoundRef.current===turn)return;
+    lastLudoTurnSoundRef.current=turn;
+    gameSound(turn===0?"your-turn":"opponent-turn",.17);
+  },[turn,winner]);
+
+  useEffect(()=>{
+    if(winner!==null || turnSeconds<=0 || turnSeconds>10)return;
+    gameSound("tick", turnSeconds<=3 ? .20 : .13);
+  },[turnSeconds,winner]);
+
+  const sendLudoReaction=(emoji)=>{
+    if(!GAME_REACTIONS.includes(emoji))return;
+    setReactionPickerOpen(false);
+    setMyReaction(emoji);
+    clearTimeout(myReactionTimerRef.current);
+    myReactionTimerRef.current=setTimeout(()=>setMyReaction(""),2200);
+
+    if(online&&roomId){
+      arenaSocket.emit("game_event",{
+        roomId,
+        type:"game_reaction",
+        payload:{
+          userId:String(myUserId||""),
+          game:"ludo",
+          emoji
+        }
+      });
+    }
+  };
+
   const later=(fn,ms)=>{const id=setTimeout(()=>{timers.current.delete(id);fn();},ms);timers.current.add(id);};
   useEffect(()=>()=>timers.current.forEach(clearTimeout),[]);
-  const legal=(p,d)=>p===-1 ? d===6 : p<57 && p+d<=57;
-  const pos=(player,p,i)=>p<0 ? [LUDO_PLAYERS[player].home[0]+Math.floor(i/2)*2,LUDO_PLAYERS[player].home[1]+(i%2)*2] : p<=51 ? LUDO_TRACK[(LUDO_PLAYERS[player].start+p)%52] : LUDO_PLAYERS[player].lane[p-52];
-  const advance=(extra)=>{setDice(null);busy.current=false;setRolling(false);setMoving(false);if(!extra)setTurn(t=>activePlayers[(activePlayers.indexOf(t)+1)%activePlayers.length]);};
+  useEffect(()=>()=>{clearTimeout(myReactionTimerRef.current);clearTimeout(opponentReactionTimerRef.current);},[]);
+  const legal=(p,d)=>p===-1 ? d===6 : p<LUDO_FINISH_STEP && p+d<=LUDO_FINISH_STEP;
+
+  // Important Ludo rule:
+  // After the player's last legal outer-track square, the very next step
+  // goes into THAT PLAYER'S colored home lane.
+  // The outer square immediately before that player's START is skipped /
+  // forbidden for that player only, exactly like the X square in the diagram.
+  const pos=(player,p,i)=>{
+    if(p<0){
+      return [
+        LUDO_PLAYERS[player].home[0]+Math.floor(i/2)*2,
+        LUDO_PLAYERS[player].home[1]+(i%2)*2
+      ];
+    }
+
+    if(p<=LUDO_LAST_TRACK_STEP){
+      return LUDO_TRACK[(LUDO_PLAYERS[player].start+p)%52];
+    }
+
+    const homeIndex=p-LUDO_HOME_START_STEP;
+    return LUDO_PLAYERS[player].lane[homeIndex];
+  };
+  const advance=(extra)=>{
+    setDice(null);busy.current=false;setRolling(false);setMoving(false);
+    if(extra){
+      gameSound(state.current?.turn===0?"your-turn":"opponent-turn",.17);
+    }else{
+      setTurn(t=>activePlayers[(activePlayers.indexOf(t)+1)%activePlayers.length]);
+    }
+  };
   const randomLegalToken=(player,d)=>{
     const current=state.current;
     if(!current || !d)return null;
@@ -288,17 +502,17 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
       if(step<target){later(tick,28);return;}
       let captured=false;
       let next=st.pieces.map(row=>row.slice());next[player][i]=target;
-      if(target<=51){const square=(LUDO_PLAYERS[player].start+target)%52;
-        if(!LUDO_SAFE.has(square))next=next.map((row,p)=>p===player||!activePlayers.includes(p)?row:row.map(v=>v>=0&&v<=51&&(LUDO_PLAYERS[p].start+v)%52===square?(captured=true,-1):v));
+      if(target<=LUDO_LAST_TRACK_STEP){const square=(LUDO_PLAYERS[player].start+target)%52;
+        if(!LUDO_SAFE.has(square))next=next.map((row,p)=>p===player||!activePlayers.includes(p)?row:row.map(v=>v>=0&&v<=LUDO_LAST_TRACK_STEP&&(LUDO_PLAYERS[p].start+v)%52===square?(captured=true,-1):v));
       }
       setPieces(next);
-      if(next[player].every(v=>v===57)){
-        setWinner(player);setMessage(player===0?'You won!':'Computer won.');gameSound('win',.16);busy.current=false;setMoving(false);
+      if(next[player].every(v=>v===LUDO_FINISH_STEP)){
+        setWinner(player);setMessage(player===0?'You won!':online?'Opponent won.':'Computer won.');gameSound('win',.18);gameSound('cheer',.22);busy.current=false;setMoving(false);
         if(!paid.current){paid.current=true;later(()=>onFinish({winner:player===0?'user':'ai',betAmount,game:'ludo',prizeMultiplier:activePlayers.length}),1600);}return;
       }
       if(captured)gameSound('capture',.12);
-       setMessage(captured?'Token captured!':target===57?'Token finished!':'Choose your next move.');
-      advance(roll===6||captured||target===57);
+       setMessage(captured?'Token captured!':target===LUDO_FINISH_STEP?'Token finished!':'Choose your next move.');
+      advance(roll===6||captured||target===LUDO_FINISH_STEP);
     };tick();
   };
   const roll=(remoteDice=null,remote=false)=>{
@@ -315,13 +529,13 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
   };
   useEffect(()=>{
     if(online||turn===0||winner!==null||rolling||moving)return;
-    if(dice===null){const id=setTimeout(roll,45);return()=>clearTimeout(id);}
+    if(dice===null){const id=setTimeout(roll,secureRandomInt(900,1800));return()=>clearTimeout(id);}
     const id=setTimeout(()=>{
       const choices=pieces[turn].map((p,i)=>({p,i})).filter(({p})=>legal(p,dice));
-      const scored=choices.map(({p,i})=>{const n=p<0?0:p+dice;let score=n===57?10000:n>=52?500+n:n;
-        if(n<=51){const abs=(LUDO_PLAYERS[turn].start+n)%52;
+      const scored=choices.map(({p,i})=>{const n=p<0?0:p+dice;let score=n===LUDO_FINISH_STEP?10000:n>=LUDO_HOME_START_STEP?500+n:n;
+        if(n<=LUDO_LAST_TRACK_STEP){const abs=(LUDO_PLAYERS[turn].start+n)%52;
           if(LUDO_SAFE.has(abs))score+=420;
-          pieces.forEach((row,other)=>{if(other===turn||!activePlayers.includes(other))return;row.forEach(v=>{if(v<0||v>51)return;const enemy=(LUDO_PLAYERS[other].start+v)%52;
+          pieces.forEach((row,other)=>{if(other===turn||!activePlayers.includes(other))return;row.forEach(v=>{if(v<0||v>LUDO_LAST_TRACK_STEP)return;const enemy=(LUDO_PLAYERS[other].start+v)%52;
             if(abs===enemy&&!LUDO_SAFE.has(abs))score+=5000;
             const behind=(abs-enemy+52)%52;if(behind>0&&behind<=6&&!LUDO_SAFE.has(abs))score-=900;
           });});
@@ -329,7 +543,7 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
         if(p<0)score+=dice===6?650:0; if(n>=45)score+=700; return {i,score};
       }).sort((a,b)=>b.score-a.score);
       if(scored.length)move(scored[0].i);
-    },45);return()=>clearTimeout(id);
+    },secureRandomInt(1200,2800));return()=>clearTimeout(id);
   },[turn,dice,rolling,moving,winner,pieces]);
   useEffect(()=>{
     if(!online||!roomId)return;
@@ -337,6 +551,16 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
       if(String(event.roomId||"")!==String(roomId))return;
       const {type,payload={}}=event;
       if(String(payload.userId||"")===String(myUserId||""))return;
+
+      if(type==="game_reaction" && payload.game==="ludo"){
+        const emoji=String(payload.emoji||"");
+        if(!GAME_REACTIONS.includes(emoji))return;
+        setOpponentReaction(emoji);
+        clearTimeout(opponentReactionTimerRef.current);
+        opponentReactionTimerRef.current=setTimeout(()=>setOpponentReaction(""),2200);
+        return;
+      }
+
       if(type==="ludo_roll"){
         if(busy.current||winner!==null)return;
         setTurn(2);
@@ -384,23 +608,67 @@ function LudoGame({onFinish,onBack,betAmount,user,opponentCount=3,lang="en",onli
     return()=>clearInterval(id);
   },[turn,winner]);
   const panel=(p)=> !activePlayers.includes(p) ? <div key={p} className="ludo-player inactive-player" style={{'--player-color':LUDO_PLAYERS[p].color}}><span className="inactive-dot"/><div className="player-name">{gt("emptySeat")}<small>{gt("notMatch")}</small></div></div> : <div key={p} className={`ludo-player ludo-player-${p} ${turn===p?'current-player':''}`} style={{'--player-color':LUDO_PLAYERS[p].color}}>
-    <div className="timed-avatar"><PlayerAvatar user={p===0?user:(online&&p===2?opponent:null)} name={p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)} color={LUDO_PLAYERS[p].color} active={turn===p}/>{turn===p&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
-    <div className="player-name">{p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)}<small>{pieces[p].filter(v=>v===57).length}/4 home</small></div>
+    <div className="reaction-profile-wrap">
+      <div className="timed-avatar">
+        <PlayerAvatar user={p===0?user:(online&&p===2?opponent:null)} name={p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)} color={LUDO_PLAYERS[p].color} active={turn===p}/>
+        {turn===p&&<span key={`${turn}-${turnSeconds}`} className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}
+      </div>
+      {p===0&&online&&(
+        <>
+          <button type="button" className="game-reaction-button" onClick={()=>setReactionPickerOpen(v=>!v)} aria-label="Send emoji reaction">🙂</button>
+          <ReactionPicker open={reactionPickerOpen} onSelect={sendLudoReaction}/>
+          <ReactionBubble emoji={myReaction} side="right"/>
+        </>
+      )}
+      {online&&p===2&&<ReactionBubble emoji={opponentReaction} side="left"/>}
+    </div>
+    <div className="player-name">{p===0?(user?.name||'You'):(online&&p===2?(opponent?.name||'Opponent'):LUDO_PLAYERS[p].name)}<small>{pieces[p].filter(v=>v===LUDO_FINISH_STEP).length}/4 home</small></div>
     <button className={`corner-dice ${turn===p&&rolling?'dice-rolling':''}`} disabled={p!==0||turn!==0||rolling||moving||dice!==null||winner!==null} onClick={roll} aria-label="Roll dice"><DiceFace value={lastDice[p]}/></button>
   </div>;
-  return <div className="arena-game-page professional-ludo">
+  return <div ref={ludoRootRef} className="arena-game-page professional-ludo">
     <style>{ARENA_STYLES+GAME_POLISH+POOL_PRO_STYLES}</style><style>{`
-.timed-avatar{position:relative;display:inline-flex;align-items:center;justify-content:center}.turn-clock{position:absolute;right:-12px;top:-10px;min-width:38px;height:24px;padding:0 6px;border-radius:999px;background:#101827;color:#fff;border:2px solid #38bdf8;font:900 12px/20px system-ui;text-align:center;box-shadow:0 3px 12px #0008;z-index:20}.turn-clock.danger{border-color:#ef4444;animation:timerPulse .55s infinite alternate}@keyframes timerPulse{to{transform:scale(1.12)}}
+.timed-avatar{position:relative;display:inline-flex;align-items:center;justify-content:center}.turn-clock{position:absolute;right:-12px;top:-10px;min-width:38px;height:24px;padding:0 6px;border-radius:999px;background:#101827;color:#fff;border:2px solid #38bdf8;font:900 12px/20px system-ui;text-align:center;box-shadow:0 3px 12px #0008;z-index:20}.turn-clock.danger{border-color:#ef4444;background:#3b0a0a;animation:timerTickPulse .24s ease-out}@keyframes timerTickPulse{0%{transform:scale(1);box-shadow:0 0 0 0 #ef444477}55%{transform:scale(1.18);box-shadow:0 0 0 7px #ef444400}100%{transform:scale(1)}}.reaction-profile-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}.game-reaction-button{position:absolute;right:-10px;bottom:-8px;z-index:40;width:27px;height:27px;border-radius:50%;border:2px solid #64748b;background:#0f172a;color:#fff;display:grid;place-items:center;font-size:15px;cursor:pointer;box-shadow:0 4px 12px #0008}.game-reaction-picker{position:absolute;z-index:100;top:calc(100% + 12px);right:-8px;width:190px;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:8px;border-radius:12px;border:1px solid #475569;background:#07111fdd;backdrop-filter:blur(10px);box-shadow:0 14px 34px #000b}.game-reaction-choice{border:0;border-radius:8px;background:#182538;color:#fff;font-size:21px;line-height:1;padding:6px 3px;cursor:pointer}.game-reaction-choice:hover{transform:scale(1.12);background:#26364e}.game-reaction-bubble{position:absolute;z-index:80;top:-44px;min-width:42px;height:42px;padding:0 8px;border-radius:18px;background:#fff;color:#111;display:grid;place-items:center;font-size:27px;box-shadow:0 7px 24px #0008;animation:reactionPop .24s ease-out}.reaction-right{right:-28px}.reaction-left{left:-28px}@keyframes reactionPop{0%{transform:scale(.35) translateY(8px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}.professional-ludo{position:fixed!important;inset:0!important;z-index:2147483000!important;width:100vw!important;height:100dvh!important;max-width:none!important;margin:0!important;overflow:auto!important;background:radial-gradient(circle at 50% 30%,#123b2a 0,#071d17 48%,#020b09 100%)!important;box-sizing:border-box!important;overscroll-behavior:none!important}.professional-ludo *{box-sizing:border-box}.professional-ludo .arena-game-header{position:sticky;top:0;z-index:500;background:#07140ff2;backdrop-filter:blur(10px)}.ludo-header-actions{display:flex;align-items:center;gap:8px}.ludo-fullscreen-btn{width:38px;height:34px;border-radius:9px;border:1px solid #4b6858;background:#10251b;color:#fff;font-size:19px;cursor:pointer}.ludo-fullscreen-btn:hover{background:#1b3c2a}.current-player-forbidden-cell{position:relative!important;box-shadow:inset 0 0 0 3px #ef4444!important}.player-forbidden-x{position:absolute;inset:0;display:grid;place-items:center;color:#ef4444;font:1000 clamp(18px,2.1vw,30px)/1 system-ui;text-shadow:0 1px 2px #fff,0 0 7px #fff;background:rgba(255,255,255,.16);pointer-events:none;z-index:9}.ludo-game-active body{overflow:hidden!important}.professional-ludo .ludo-stage{margin-left:auto!important;margin-right:auto!important}@media(max-width:700px){.professional-ludo{padding:6px!important}.professional-ludo .arena-game-header{padding:6px 8px!important}.ludo-fullscreen-btn{width:34px;height:32px}.professional-ludo .ludo-stage{width:min(100%,calc(100dvh - 58px))!important;max-width:100%!important}.professional-ludo .ludo-player-row{margin:5px 0!important;gap:5px!important}.professional-ludo .ludo-live-status{padding:6px!important;min-height:30px!important;font-size:11px!important}.professional-ludo .ludo-board-shell{padding:4px!important}}@media(min-width:701px){.professional-ludo .ludo-stage{width:min(76vh,760px)!important;min-width:420px!important}}
 `}</style><EntryLoader title="Ludo"/>
-    <header className="arena-game-header"><button className="arena-back-btn" onClick={()=>setExitRequested(true)}>← Exit Game</button><strong className="arena-game-title">Ludo</strong><span className="arena-bet-badge">🪙 {betAmount}</span></header>
+    <header className="arena-game-header">
+      <button className="arena-back-btn" onClick={()=>setExitRequested(true)}>← Exit Game</button>
+      <strong className="arena-game-title">Ludo</strong>
+      <div className="ludo-header-actions">
+        <span className="arena-bet-badge">🪙 {betAmount}</span>
+        <button type="button" className="ludo-fullscreen-btn" onClick={toggleLudoFullscreen} title="Fullscreen" aria-label="Toggle fullscreen">⛶</button>
+      </div>
+    </header>
     <div className="ludo-stage"><div className="ludo-player-row">{panel(0)}{panel(1)}</div>
-    <div className="ludo-board-shell"><div className="ludo-board">
+    <div className="ludo-board-shell" title="Each token enters its own colored Home lane before its personal forbidden outer square. That X square remains valid for the other players."><div className="ludo-board">
       {Array.from({length:225},(_,i)=>{const r=Math.floor(i/15),c=i%15;let color='#fff';
         if(r<6&&c<6)color=LUDO_PLAYERS[0].color;if(r<6&&c>8)color=LUDO_PLAYERS[1].color;
         if(r>8&&c>8)color=LUDO_PLAYERS[2].color;if(r>8&&c<6)color=LUDO_PLAYERS[3].color;
         LUDO_PLAYERS.forEach(p=>{if(p.lane.some(([a,b])=>a===r&&b===c)||LUDO_TRACK[p.start].every((v,j)=>v===[r,c][j]))color=p.color;});
         const index=LUDO_TRACK.findIndex(([a,b])=>a===r&&b===c);
-        return <div key={i} className="ludo-cell" style={{gridRow:r+1,gridColumn:c+1,background:color,border:(r<6||r>8)&&(c<6||c>8)?"none":undefined}}>{LUDO_SAFE.has(index)&&<span className="safe-star">★</span>}</div>;
+        const isCurrentPlayerForbidden =
+          activePlayers.includes(turn) &&
+          index >= 0 &&
+          index === ludoForbiddenTrackIndex(turn);
+
+        return (
+          <div
+            key={i}
+            className={`ludo-cell ${isCurrentPlayerForbidden ? "current-player-forbidden-cell" : ""}`}
+            style={{
+              gridRow:r+1,
+              gridColumn:c+1,
+              background:color,
+              border:(r<6||r>8)&&(c<6||c>8)?"none":undefined
+            }}
+            title={
+              isCurrentPlayerForbidden
+                ? `Not valid for ${turn===0 ? (user?.name||"You") : (online&&turn===2 ? (opponent?.name||"Opponent") : LUDO_PLAYERS[turn].name)} — enter Home lane instead`
+                : undefined
+            }
+          >
+            {LUDO_SAFE.has(index)&&<span className="safe-star">★</span>}
+            {isCurrentPlayerForbidden&&<span className="player-forbidden-x" aria-hidden="true">×</span>}
+          </div>
+        );
       })}
       {LUDO_PLAYERS.map((p,i)=><div key={'base'+i} className="home-inset" style={{gridRow:`${i<2?2:11} / span 4`,gridColumn:`${i===0||i===3?2:11} / span 4`}}/>)}
       <div className="center-triangles"/>
@@ -697,11 +965,27 @@ function PoolGame({
     powerStartedAt:0,
   });
 
+  // PC right mouse button: hold to charge from 5% to 100%, release to shoot.
+  const poolMouseChargeRef=useRef({
+    active:false,
+    raf:null,
+    startedAt:0,
+    pointerId:null,
+  });
+
   const [ballInHand, setBallInHand] =
     useState(false);
 
   const [winner, setWinner] =
     useState(null);
+
+  const lastPoolTurnSoundRef=useRef(null);
+  useEffect(()=>{
+    if(winner || lastPoolTurnSoundRef.current===turn)return;
+    lastPoolTurnSoundRef.current=turn;
+    gameSound(turn==="user"?"your-turn":"opponent-turn",.18);
+  },[turn,winner]);
+
   const [exitRequested, setExitRequested] = useState(false);
 
   const [message, setMessage] =
@@ -713,6 +997,36 @@ function PoolGame({
     useState(1);
 
   const [turnSeconds,setTurnSeconds]=useState(40);
+  const [reactionPickerOpen,setReactionPickerOpen]=useState(false);
+  const [myReaction,setMyReaction]=useState("");
+  const [opponentReaction,setOpponentReaction]=useState("");
+  const myReactionTimerRef=useRef(null);
+  const opponentReactionTimerRef=useRef(null);
+
+  useEffect(()=>{
+    if(winner || turnSeconds<=0 || turnSeconds>10)return;
+    gameSound("tick", turnSeconds<=3 ? .20 : .13);
+  },[turnSeconds,winner]);
+
+  const sendPoolReaction=(emoji)=>{
+    if(!GAME_REACTIONS.includes(emoji))return;
+    setReactionPickerOpen(false);
+    setMyReaction(emoji);
+    clearTimeout(myReactionTimerRef.current);
+    myReactionTimerRef.current=setTimeout(()=>setMyReaction(""),2200);
+
+    if(onlineRef.current&&roomId){
+      arenaSocket.emit("game_event",{
+        roomId,
+        type:"game_reaction",
+        payload:{
+          userId:String(myUserId||""),
+          game:"pool",
+          emoji
+        }
+      });
+    }
+  };
 
   // Mobile immersive Pool mode. Fullscreen/orientation lock may require the first touch on some browsers.
   useEffect(() => {
@@ -777,6 +1091,23 @@ function PoolGame({
         else aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),60);
       } else if(turnRef.current==='ai'&&!movingRef.current&&!onlineRef.current){
         aiTimerRef.current=setTimeout(()=>aiShotRef.current?.(),20);
+      } else if(turnRef.current==='ai'&&!movingRef.current&&onlineRef.current){
+        // Network safety: if the opponent timeout packet is lost, recover locally
+        // after a short grace period instead of freezing the whole match.
+        aiTimerRef.current=setTimeout(()=>{
+          if(
+            aliveRef.current &&
+            onlineRef.current &&
+            turnRef.current==='ai' &&
+            !movingRef.current
+          ){
+            turnRef.current='user';
+            setTurn('user');
+            ballInHandRef.current=false;
+            setBallInHand(false);
+            setMessage("⏱️ Opponent turn timed out — your turn.");
+          }
+        },1200);
       }
     };
     tick();
@@ -829,7 +1160,35 @@ function PoolGame({
       }
       balls.forEach(ball=>{if(!ball.pocketed)drawPoolBall(ctx,ball);});
       if(cue&&ballInHandRef.current&&turnRef.current==='user'){
-        ctx.save();ctx.globalAlpha=.55;drawPoolBall(ctx,{...cue,x:mousePointRef.current.x,y:mousePointRef.current.y});ctx.restore();
+        ctx.save();
+        ctx.globalAlpha=.55;
+        drawPoolBall(ctx,{...cue,x:mousePointRef.current.x,y:mousePointRef.current.y});
+        ctx.restore();
+
+        // Clear visual help for beginners: show a hand in the middle of the table.
+        ctx.save();
+        ctx.textAlign="center";
+        ctx.textBaseline="middle";
+        ctx.fillStyle="rgba(4,12,22,.72)";
+        ctx.beginPath();
+        ctx.arc(POOL_WIDTH/2,POOL_HEIGHT/2,72,0,Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle="rgba(255,255,255,.28)";
+        ctx.lineWidth=2;
+        ctx.stroke();
+
+        ctx.font="48px system-ui, sans-serif";
+        ctx.fillStyle="#ffffff";
+        ctx.fillText("✋",POOL_WIDTH/2,POOL_HEIGHT/2-13);
+
+        ctx.font="900 15px system-ui, sans-serif";
+        ctx.fillStyle="#f8fafc";
+        ctx.fillText("BALL IN HAND",POOL_WIDTH/2,POOL_HEIGHT/2+29);
+
+        ctx.font="700 10px system-ui, sans-serif";
+        ctx.fillStyle="#bfdbfe";
+        ctx.fillText("Tap a clear place for the white ball",POOL_WIDTH/2,POOL_HEIGHT/2+48);
+        ctx.restore();
       }
       renderFrameRef.current=requestAnimationFrame(draw);
     };
@@ -911,13 +1270,50 @@ function PoolGame({
       setMessage(
         "Cue ball placed. Aim and shoot."
       );
+
+      if (onlineRef.current && roomId) {
+        arenaSocket.emit("game_event", {
+          roomId,
+          type: "pool_cue_place",
+          payload: {
+            userId: String(myUserId || ""),
+            x: safeX,
+            y: safeY
+          }
+        });
+      }
     },
-    []
+    [roomId, myUserId]
   );
 
   /* =====================================================
      PHYSICS
   ===================================================== */
+
+  const emitPoolTurnSync = useCallback((nextPlayer, options = {}) => {
+    if (!onlineRef.current || !roomId) return;
+
+    const opponentUserId = String(
+      opponent?.id || opponent?._id || opponent?.userId || ""
+    );
+
+    const nextUserId =
+      nextPlayer === "user"
+        ? String(myUserId || "")
+        : opponentUserId;
+
+    arenaSocket.emit("game_event", {
+      roomId,
+      type: "pool_turn_sync",
+      payload: {
+        userId: String(myUserId || ""),
+        nextUserId,
+        ballInHand: Boolean(options.ballInHand),
+        shotNumber: Number(options.shotNumber || 0),
+        reason: String(options.reason || "shot_complete")
+      }
+    });
+  }, [roomId, myUserId, opponent]);
 
   const finishShot = useCallback(
     () => {
@@ -987,6 +1383,7 @@ function PoolGame({
 
           setWinner(opponent);
           gameSound("foul",.14);
+          gameSound("cheer",.22);
 
           setMessage(
             opponent === "user"
@@ -1010,7 +1407,8 @@ function PoolGame({
           player;
 
         setWinner(player);
-        gameSound("win",.16);
+        gameSound("win",.18);
+        gameSound("cheer",.22);
 
         setMessage(
           player === "user"
@@ -1133,8 +1531,18 @@ function PoolGame({
         setMessage(
           opponent === "user"
             ? "⚠️ Foul. Ball-in-hand — place the cue ball."
-            : "⚠️ Foul. Computer gets ball-in-hand."
+            : onlineRef.current
+              ? "⚠️ Foul. Opponent gets ball-in-hand."
+              : "⚠️ Foul. Computer gets ball-in-hand."
         );
+
+        if (onlineRef.current && player === "user") {
+          emitPoolTurnSync(opponent, {
+            ballInHand: true,
+            shotNumber: shotNumber + 1,
+            reason: "foul"
+          });
+        }
 
         shotRef.current = {
           firstHit: null,
@@ -1190,9 +1598,21 @@ function PoolGame({
 
       setTurn(nextPlayer);
 
+      if(nextPlayer===player){
+        gameSound(nextPlayer==="user"?"your-turn":"opponent-turn",.18);
+      }
+
       setShotNumber(
         (value) => value + 1
       );
+
+      if (onlineRef.current && player === "user") {
+        emitPoolTurnSync(nextPlayer, {
+          ballInHand: false,
+          shotNumber: shotNumber + 1,
+          reason: pocketedOwn ? "continue" : "turn_change"
+        });
+      }
 
       shotRef.current = {
         firstHit: null,
@@ -1222,7 +1642,7 @@ function PoolGame({
           }, 55);
       }
     },
-    [betAmount, onFinish]
+    [betAmount, onFinish, emitPoolTurnSync, shotNumber]
   );
 
   const physicsStep = useCallback(
@@ -1294,6 +1714,7 @@ function PoolGame({
           ball.vx =
             Math.abs(ball.vx) *
             0.92;
+          gameSound("pool-rail",.075);
         }
 
         if (
@@ -1310,6 +1731,7 @@ function PoolGame({
           ball.vx =
             -Math.abs(ball.vx) *
             0.92;
+          gameSound("pool-rail",.075);
         }
 
         if (
@@ -1324,6 +1746,7 @@ function PoolGame({
           ball.vy =
             Math.abs(ball.vy) *
             0.92;
+          gameSound("pool-rail",.075);
         }
 
         if (
@@ -1340,6 +1763,7 @@ function PoolGame({
           ball.vy =
             -Math.abs(ball.vy) *
             0.92;
+          gameSound("pool-rail",.075);
         }
       });
 
@@ -1474,6 +1898,11 @@ function PoolGame({
           b.vy +=
             impulse * ny;
 
+          gameSound(
+            "pool-hit",
+            clamp(Math.abs(velocityAlongNormal) * 0.022, 0.065, 0.22)
+          );
+
           anyMoving = true;
         }
       }
@@ -1505,7 +1934,7 @@ function PoolGame({
             POCKET_RADIUS
           ) {
             ball.pocketed = true;
-            gameSound("pocket",.11);
+            gameSound("pocket",.24);
             ball.vx = 0;
             ball.vy = 0;
 
@@ -1630,7 +2059,7 @@ function PoolGame({
           }
         });
       }
-      gameSound("shoot",.10);
+      gameSound("shoot",.16);
       movingRef.current = true;
       setShotActive(true);
       physicsClockRef.current={last:0,accumulator:0};
@@ -1769,6 +2198,30 @@ function PoolGame({
 
       if (!targets.length) return;
 
+      const pathBlocked=(startX,startY,endX,endY,ignoreBalls=[],clearance=BALL_RADIUS*2.12)=>{
+        const vx=endX-startX;
+        const vy=endY-startY;
+        const length=Math.hypot(vx,vy);
+        if(length<1)return false;
+
+        return ballsRef.current.some((other)=>{
+          if(other.pocketed || ignoreBalls.includes(other))return false;
+
+          const px=other.x-startX;
+          const py=other.y-startY;
+          const projection=(px*vx+py*vy)/length;
+
+          if(projection<=BALL_RADIUS*.35 || projection>=length-BALL_RADIUS*.35){
+            return false;
+          }
+
+          const closestX=startX+(vx/length)*projection;
+          const closestY=startY+(vy/length)*projection;
+
+          return Math.hypot(other.x-closestX,other.y-closestY)<clearance;
+        });
+      };
+
       const candidates = [];
 
       targets.forEach(
@@ -1842,83 +2295,55 @@ function PoolGame({
               cutAngle =
                 Math.abs(cutAngle);
 
-              let blockedPenalty = 0;
+              const ghostInsideTable =
+                ghostX >= POOL_RAIL + BALL_RADIUS &&
+                ghostX <= POOL_WIDTH - POOL_RAIL - BALL_RADIUS &&
+                ghostY >= POOL_RAIL + BALL_RADIUS &&
+                ghostY <= POOL_HEIGHT - POOL_RAIL - BALL_RADIUS;
 
-              ballsRef.current.forEach(
-                (other) => {
-                  if (
-                    other === cue ||
-                    other === target ||
-                    other.pocketed
-                  ) {
-                    return;
-                  }
-
-                  const vx =
-                    ghostX - cue.x;
-                  const vy =
-                    ghostY - cue.y;
-                  const length =
-                    Math.hypot(vx, vy);
-
-                  if (length < 1) return;
-
-                  const px =
-                    other.x - cue.x;
-                  const py =
-                    other.y - cue.y;
-
-                  const projection =
-                    (
-                      px * vx +
-                      py * vy
-                    ) / length;
-
-                  if (
-                    projection <=
-                      BALL_RADIUS ||
-                    projection >=
-                      length - BALL_RADIUS
-                  ) {
-                    return;
-                  }
-
-                  const closestX =
-                    cue.x +
-                    (vx / length) *
-                      projection;
-                  const closestY =
-                    cue.y +
-                    (vy / length) *
-                      projection;
-
-                  const distance =
-                    Math.hypot(
-                      other.x -
-                        closestX,
-                      other.y -
-                        closestY
-                    );
-
-                  if (
-                    distance <
-                    BALL_RADIUS * 2.2
-                  ) {
-                    blockedPenalty +=
-                      850;
-                  }
-                }
+              // 1) Cue ball must have a clean lane to the ghost/contact point.
+              const cueLaneBlocked = pathBlocked(
+                cue.x,
+                cue.y,
+                ghostX,
+                ghostY,
+                [cue,target],
+                BALL_RADIUS*2.08
               );
+
+              // 2) More important: after impact, the selected target must also
+              // have a clean lane all the way to the selected pocket.
+              const objectLaneBlocked = pathBlocked(
+                target.x,
+                target.y,
+                pocket[0],
+                pocket[1],
+                [cue,target],
+                BALL_RADIUS*2.06
+              );
+
+              const difficultCut = cutAngle > 1.18;
+              const clean =
+                ghostInsideTable &&
+                !cueLaneBlocked &&
+                !objectLaneBlocked &&
+                !difficultCut;
+
+              const blockedPenalty =
+                (cueLaneBlocked ? 9000 : 0) +
+                (objectLaneBlocked ? 14000 : 0) +
+                (!ghostInsideTable ? 20000 : 0) +
+                (difficultCut ? 3200 : 0);
 
               const score =
                 cueDistance +
-                targetPocketDistance * 0.82 +
-                cutAngle * 170 +
+                targetPocketDistance * 0.78 +
+                cutAngle * 390 +
                 blockedPenalty +
                 (
                   pocket[0] ===
                     POOL_WIDTH / 2
-                    ? 18
+                    ? 12
                     : 0
                 );
 
@@ -1927,6 +2352,10 @@ function PoolGame({
                 pocket,
                 ghostX,
                 ghostY,
+                targetPocketDistance,
+                cueLaneBlocked,
+                objectLaneBlocked,
+                clean,
                 score,
               });
             }
@@ -1939,7 +2368,12 @@ function PoolGame({
           a.score - b.score
       );
 
-      const selected = candidates[0];
+      // Never choose a visibly blocked pot while a clean legal pot exists.
+      // Only fall back to a blocked/difficult route when every option is blocked.
+      const cleanCandidates=candidates.filter(candidate=>candidate.clean);
+      const selected=(cleanCandidates.length?cleanCandidates:candidates)[0];
+
+      if(!selected)return;
 
       const baseAngle =
         Math.atan2(
@@ -1956,8 +2390,12 @@ function PoolGame({
         );
 
       // Stronger/faster final shot, but the AI visibly thinks and lines up first.
-      const strength = clamp(18.4 + routeDistance / 760, 18.4, 19.8);
-      const thinkMs = secureRandomInt(7000, 10000);
+      const strength = clamp(
+        20.6 + (routeDistance + selected.targetPocketDistance) / 1150,
+        20.6,
+        23.2
+      );
+      const thinkMs = secureRandomInt(2200, 4500);
       const startAt = performance.now();
       const startAngle = finalAngle + secureRandomFloat(-0.95, 0.95);
       aiThinkingRef.current.active = true;
@@ -1988,7 +2426,7 @@ function PoolGame({
         shotFinishedRef.current = false;
         cue.vx = Math.cos(finalAngle) * strength;
         cue.vy = Math.sin(finalAngle) * strength;
-        gameSound("shoot",.12);
+        gameSound("shoot",.18);
         movingRef.current = true;
         setShotActive(true);
         physicsClockRef.current={last:0,accumulator:0};
@@ -2039,10 +2477,30 @@ function PoolGame({
 
   useEffect(()=>{
     if(!online || !roomId)return;
+
+    const rejoinRoom=()=>{
+      arenaSocket.emit("rejoin_game_room",{
+        roomId,
+        userId:String(myUserId||"")
+      });
+    };
+
+    arenaSocket.on("connect",rejoinRoom);
+    if(arenaSocket.connected) rejoinRoom();
+
     const onGameEvent=(event={})=>{
       if(String(event.roomId||"")!==String(roomId))return;
       const {type,payload={}}=event;
       if(String(payload.userId||"")===String(myUserId||""))return;
+
+      if(type==="game_reaction" && payload.game==="pool"){
+        const emoji=String(payload.emoji||"");
+        if(!GAME_REACTIONS.includes(emoji))return;
+        setOpponentReaction(emoji);
+        clearTimeout(opponentReactionTimerRef.current);
+        opponentReactionTimerRef.current=setTimeout(()=>setOpponentReaction(""),2200);
+        return;
+      }
 
       if(type==="pool_aim"){
         if(turnRef.current!=="ai" || movingRef.current)return;
@@ -2081,16 +2539,71 @@ function PoolGame({
         return;
       }
 
+      if(type==="pool_turn_sync"){
+        const nextUserId=String(payload.nextUserId||"");
+        const myId=String(myUserId||"");
+        const nextTurn=nextUserId && nextUserId===myId ? "user" : "ai";
+        const previousTurn=turnRef.current;
+
+        if(previousTurn===nextTurn){
+          gameSound(nextTurn==="user"?"your-turn":"opponent-turn",.18);
+        }
+
+        if(animationRef.current){
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current=null;
+        }
+
+        movingRef.current=false;
+        setShotActive(false);
+        shotFinishedRef.current=false;
+        turnRef.current=nextTurn;
+        setTurn(nextTurn);
+
+        const hand=Boolean(payload.ballInHand);
+        ballInHandRef.current=hand;
+        setBallInHand(hand);
+
+        if(Number(payload.shotNumber)>0){
+          setShotNumber(Number(payload.shotNumber));
+        }
+
+        setMessage(
+          nextTurn==="user"
+            ? hand
+              ? "⚠️ Ball-in-hand — place the cue ball."
+              : "🎯 Your turn."
+            : hand
+              ? `⚠️ ${opponent?.name||"Opponent"} has ball-in-hand.`
+              : `🎱 ${opponent?.name||"Opponent"} turn.`
+        );
+        return;
+      }
+
+      if(type==="pool_cue_place"){
+        const cue=ballsRef.current.find(ball=>ball.type==="cue");
+        if(cue){
+          cue.x=clamp(Number(payload.x)||240,POOL_RAIL+BALL_RADIUS,POOL_WIDTH-POOL_RAIL-BALL_RADIUS);
+          cue.y=clamp(Number(payload.y)||250,POOL_RAIL+BALL_RADIUS,POOL_HEIGHT-POOL_RAIL-BALL_RADIUS);
+          cue.vx=0;cue.vy=0;cue.pocketed=false;
+        }
+        ballInHandRef.current=false;
+        setBallInHand(false);
+        return;
+      }
+
       if(type==="pool_turn_timeout"){
         if(turnRef.current==="ai" && !movingRef.current){
           turnRef.current="user";
           setTurn("user");
+          ballInHandRef.current=false;
+          setBallInHand(false);
           setMessage("⏱️ Opponent time over — your turn.");
         }
       }
     };
     arenaSocket.on("game_event",onGameEvent);
-    return()=>arenaSocket.off("game_event",onGameEvent);
+    return()=>{arenaSocket.off("connect",rejoinRoom);arenaSocket.off("game_event",onGameEvent);};
   },[online,roomId,myUserId,opponent?.name,shoot]);
 
   const broadcastAim=useCallback(()=>{
@@ -2107,37 +2620,196 @@ function PoolGame({
 
   const handlePointerDown=useCallback(event=>{
     if(movingRef.current||winnerRef.current||turnRef.current!=='user')return;
+
+    const point=getCanvasPoint(event);
+    mousePointRef.current=point;
+
+    // PC: RIGHT CLICK = charge power. Hold until 100%, release to shoot.
+    if(event.pointerType==="mouse" && event.button===2){
+      if(ballInHandRef.current)return;
+      event.preventDefault();
+
+      const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);
+      if(!cue)return;
+
+      cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
+
+      const charge=poolMouseChargeRef.current;
+      if(charge.active)return;
+
+      charge.active=true;
+      charge.startedAt=performance.now();
+      charge.pointerId=event.pointerId;
+
+      powerRef.current=5;
+      setPower(5);
+      aimingRef.current=true;
+      broadcastAim();
+
+      const chargeFrame=(now)=>{
+        if(!charge.active)return;
+
+        // About 1.6 seconds to reach full 100% power.
+        const next=clamp(
+          Math.round(5+((now-charge.startedAt)/1600)*95),
+          5,
+          100
+        );
+
+        powerRef.current=next;
+        setPower(next);
+        aimingRef.current=true;
+        broadcastAim();
+
+        if(next<100){
+          charge.raf=requestAnimationFrame(chargeFrame);
+        }else{
+          charge.raf=null;
+        }
+      };
+
+      charge.raf=requestAnimationFrame(chargeFrame);
+
+      try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
+      return;
+    }
+
     event.preventDefault();
-    const point=getCanvasPoint(event);mousePointRef.current=point;
-    if(ballInHandRef.current){placeCueBall(point.x,point.y);return;}
-    const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);if(!cue)return;
+
+    if(ballInHandRef.current){
+      placeCueBall(point.x,point.y);
+      return;
+    }
+
+    const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);
+    if(!cue)return;
+
     const nearCue=Math.hypot(point.x-cue.x,point.y-cue.y)<BALL_RADIUS*3;
     dragRef.current={start:point,nearCue,moved:false};
     aimingRef.current=true;
-    if(!nearCue)cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
-    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
-  },[getCanvasPoint,placeCueBall]);
-  const handlePointerMove=useCallback(event=>{
-    if(!dragRef.current)return;
-    event.preventDefault();
-    const point=getCanvasPoint(event);mousePointRef.current=point;
-    if(movingRef.current||turnRef.current!=='user'||ballInHandRef.current)return;
-    const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);if(!cue)return;
-    const drag=dragRef.current;drag.moved=true;
-    if(drag.nearCue){
-      const distance=Math.hypot(point.x-cue.x,point.y-cue.y);
-      if(distance>8){cueAngleRef.current=Math.atan2(cue.y-point.y,cue.x-point.x);powerRef.current=clamp(Math.round(distance/1.7),5,100);setPower(powerRef.current);}
-    }else{
-      // One-finger aiming: slide anywhere on the table to rotate the cue.
+
+    if(!nearCue){
       cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
     }
+
+    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
+  },[getCanvasPoint,placeCueBall,broadcastAim]);
+
+  const handlePointerMove=useCallback(event=>{
+    const charge=poolMouseChargeRef.current;
+
+    if(charge.active && event.pointerType==="mouse"){
+      event.preventDefault();
+
+      const point=getCanvasPoint(event);
+      mousePointRef.current=point;
+
+      const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);
+      if(cue && !movingRef.current && turnRef.current==='user'){
+        cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
+        broadcastAim();
+      }
+
+      return;
+    }
+
+    if(!dragRef.current)return;
+
+    event.preventDefault();
+
+    const point=getCanvasPoint(event);
+    mousePointRef.current=point;
+
+    if(movingRef.current||turnRef.current!=='user'||ballInHandRef.current)return;
+
+    const cue=ballsRef.current.find(b=>b.type==='cue'&&!b.pocketed);
+    if(!cue)return;
+
+    const drag=dragRef.current;
+    drag.moved=true;
+
+    if(drag.nearCue){
+      const distance=Math.hypot(point.x-cue.x,point.y-cue.y);
+
+      if(distance>8){
+        cueAngleRef.current=Math.atan2(cue.y-point.y,cue.x-point.x);
+        powerRef.current=clamp(Math.round(distance/1.7),5,100);
+        setPower(powerRef.current);
+      }
+    }else{
+      // One-finger / left-mouse aiming remains unchanged.
+      cueAngleRef.current=Math.atan2(point.y-cue.y,point.x-cue.x);
+    }
+
     broadcastAim();
   },[getCanvasPoint,broadcastAim]);
+
   const handlePointerUp=useCallback(event=>{
-    const drag=dragRef.current;dragRef.current=null;aimingRef.current=false;
-    if(drag?.nearCue&&drag.moved)shoot(cueAngleRef.current,2.4+powerRef.current*.155);
+    const charge=poolMouseChargeRef.current;
+
+    if(charge.active && event.pointerType==="mouse" && event.button===2){
+      event.preventDefault();
+
+      charge.active=false;
+
+      if(charge.raf){
+        cancelAnimationFrame(charge.raf);
+        charge.raf=null;
+      }
+
+      aimingRef.current=false;
+
+      try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{}
+
+      if(
+        turnRef.current==='user' &&
+        !movingRef.current &&
+        !ballInHandRef.current &&
+        !winnerRef.current
+      ){
+        shoot(cueAngleRef.current,2.7+powerRef.current*.175);
+      }
+
+      return;
+    }
+
+    const drag=dragRef.current;
+    dragRef.current=null;
+    aimingRef.current=false;
+
+    if(drag?.nearCue&&drag.moved){
+      shoot(cueAngleRef.current,2.7+powerRef.current*.175);
+    }
+
     try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{}
   },[shoot]);
+
+  const handlePointerCancel=useCallback(event=>{
+    const charge=poolMouseChargeRef.current;
+
+    charge.active=false;
+
+    if(charge.raf){
+      cancelAnimationFrame(charge.raf);
+      charge.raf=null;
+    }
+
+    dragRef.current=null;
+    aimingRef.current=false;
+
+    try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{}
+  },[]);
+  useEffect(()=>{
+    return()=>{
+      const charge=poolMouseChargeRef.current;
+      charge.active=false;
+      if(charge.raf){
+        cancelAnimationFrame(charge.raf);
+        charge.raf=null;
+      }
+    };
+  },[]);
+
   const updateCueControllerPower=useCallback((event)=>{
     const rail=cueControllerRef.current;
     if(!rail||turnRef.current!=='user'||movingRef.current||ballInHandRef.current||winnerRef.current)return;
@@ -2171,7 +2843,7 @@ function PoolGame({
     aimingRef.current=false;
     try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{}
     if(turnRef.current==='user'&&!movingRef.current&&!ballInHandRef.current&&!winnerRef.current){
-      shoot(cueAngleRef.current,2.4+powerRef.current*.155);
+      shoot(cueAngleRef.current,2.7+powerRef.current*.175);
     }
   },[cueControllerPulling,shoot]);
 
@@ -2294,7 +2966,7 @@ function PoolGame({
         stopPowerCharge();
         aimingRef.current=false;
         if(canControl()){
-          shoot(cueAngleRef.current,2.4+powerRef.current*.155);
+          shoot(cueAngleRef.current,2.7+powerRef.current*.175);
         }
       }
     };
@@ -2337,6 +3009,9 @@ function PoolGame({
           aiTimerRef.current
         );
       }
+
+      clearTimeout(myReactionTimerRef.current);
+      clearTimeout(opponentReactionTimerRef.current);
     };
   }, []);
 
@@ -2353,18 +3028,30 @@ function PoolGame({
   };
   return <div className="arena-game-page professional-pool">
     <style>{ARENA_STYLES+GAME_POLISH+POOL_PRO_STYLES}</style><style>{`
-.timed-avatar{position:relative;display:inline-flex;align-items:center;justify-content:center}.turn-clock{position:absolute;right:-12px;top:-10px;min-width:38px;height:24px;padding:0 6px;border-radius:999px;background:#101827;color:#fff;border:2px solid #38bdf8;font:900 12px/20px system-ui;text-align:center;box-shadow:0 3px 12px #0008;z-index:20}.turn-clock.danger{border-color:#ef4444;animation:timerPulse .55s infinite alternate}@keyframes timerPulse{to{transform:scale(1.12)}}
+.timed-avatar{position:relative;display:inline-flex;align-items:center;justify-content:center}.turn-clock{position:absolute;right:-12px;top:-10px;min-width:38px;height:24px;padding:0 6px;border-radius:999px;background:#101827;color:#fff;border:2px solid #38bdf8;font:900 12px/20px system-ui;text-align:center;box-shadow:0 3px 12px #0008;z-index:20}.turn-clock.danger{border-color:#ef4444;background:#3b0a0a;animation:timerTickPulse .24s ease-out}@keyframes timerTickPulse{0%{transform:scale(1);box-shadow:0 0 0 0 #ef444477}55%{transform:scale(1.18);box-shadow:0 0 0 7px #ef444400}100%{transform:scale(1)}}.reaction-profile-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}.game-reaction-button{position:absolute;right:-10px;bottom:-8px;z-index:40;width:27px;height:27px;border-radius:50%;border:2px solid #64748b;background:#0f172a;color:#fff;display:grid;place-items:center;font-size:15px;cursor:pointer;box-shadow:0 4px 12px #0008}.game-reaction-picker{position:absolute;z-index:100;top:calc(100% + 12px);right:-8px;width:190px;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:8px;border-radius:12px;border:1px solid #475569;background:#07111fdd;backdrop-filter:blur(10px);box-shadow:0 14px 34px #000b}.game-reaction-choice{border:0;border-radius:8px;background:#182538;color:#fff;font-size:21px;line-height:1;padding:6px 3px;cursor:pointer}.game-reaction-choice:hover{transform:scale(1.12);background:#26364e}.game-reaction-bubble{position:absolute;z-index:80;top:-44px;min-width:42px;height:42px;padding:0 8px;border-radius:18px;background:#fff;color:#111;display:grid;place-items:center;font-size:27px;box-shadow:0 7px 24px #0008;animation:reactionPop .24s ease-out}.reaction-right{right:-28px}.reaction-left{left:-28px}@keyframes reactionPop{0%{transform:scale(.35) translateY(8px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
 `}</style><EntryLoader title="8 Ball Pool"/>
     <div className="pool-game-shell">
       <header className="pool-hud">
         <button className="pool-menu-button" aria-label="Exit Game" title="Exit Game" onClick={()=>setExitRequested(true)}><svg viewBox="0 0 32 32"><path d="M6 8h20M6 16h20M6 24h20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg></button>
         <div className={`pool-contender pool-contender-user ${turn==='user'?'contender-active':''}`}>
           <div className="pool-contender-details"><div className="pool-nameplate"><span>{user?.name||'You'}</span><small>{winner?'Finished':turn==='user'?'Your turn':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Your remaining balls">{remainingFor('user')}</div></div>
-          <div className="timed-avatar"><PlayerAvatar user={user} name={user?.name||'You'} color="#66ec5b" active={turn==='user'}/>{turn==='user'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+          <div className="reaction-profile-wrap">
+            <div className="timed-avatar"><PlayerAvatar user={user} name={user?.name||'You'} color="#66ec5b" active={turn==='user'}/>{turn==='user'&&<span key={`user-${turnSeconds}`} className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+            {online&&(
+              <>
+                <button type="button" className="game-reaction-button" onClick={()=>setReactionPickerOpen(v=>!v)} aria-label="Send emoji reaction">🙂</button>
+                <ReactionPicker open={reactionPickerOpen} onSelect={sendPoolReaction}/>
+                <ReactionBubble emoji={myReaction} side="right"/>
+              </>
+            )}
+          </div>
         </div>
         <div className="pool-match-prize"><svg viewBox="0 0 48 32" aria-hidden="true"><g fill="#facc15" stroke="#b77913" strokeWidth="1.5"><ellipse cx="18" cy="22" rx="10" ry="4"/><ellipse cx="18" cy="17" rx="10" ry="4"/><ellipse cx="18" cy="12" rx="10" ry="4"/><ellipse cx="31" cy="23" rx="9" ry="4"/><ellipse cx="31" cy="18" rx="9" ry="4"/></g></svg><strong>{Math.floor(betAmount*2*0.90)}</strong><small>WINNER AFTER 10% FEE</small></div>
         <div className={`pool-contender pool-contender-ai ${turn==='ai'?'contender-active':''}`}>
-          <div className="timed-avatar"><PlayerAvatar user={online?opponent:null} name={online?(opponent?.name||'Opponent'):'Computer'} color="#67d8ff" active={turn==='ai'}/>{turn==='ai'&&<span className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+          <div className="reaction-profile-wrap">
+            <div className="timed-avatar"><PlayerAvatar user={online?opponent:null} name={online?(opponent?.name||'Opponent'):'Computer'} color="#67d8ff" active={turn==='ai'}/>{turn==='ai'&&<span key={`opponent-${turnSeconds}`} className={`turn-clock ${turnSeconds<=10?'danger':''}`}>{turnSeconds}s</span>}</div>
+            {online&&<ReactionBubble emoji={opponentReaction} side="left"/>}
+          </div>
           <div className="pool-contender-details"><div className="pool-nameplate"><span>{online?(opponent?.name||'Opponent'):'Computer'}</span><small>{winner?'Finished':turn==='ai'?'Playing':'Waiting'}</small></div><div className="pool-ball-row" aria-label="Opponent remaining balls">{remainingFor('ai')}</div></div>
         </div>
         <button className="pool-icon-button" title="Fullscreen" aria-label="Fullscreen" onClick={fullScreen}><svg viewBox="0 0 32 32"><path d="M5 12V5h7M20 5h7v7M27 20v7h-7M12 27H5v-7" fill="none" stroke="currentColor" strokeWidth="2.5"/></svg></button>
@@ -2394,13 +3081,13 @@ function PoolGame({
           <strong>{turn==='ai'?aiVisualPower:power}%</strong>
           <small>{turn==='ai'?(online?'Opponent aiming':'Computer aiming'):'Pull ↓ · Release'}</small>
         </div>
-        <div className="pool-table-stage"><canvas ref={canvasRef} width={POOL_WIDTH} height={POOL_HEIGHT} className="pool-pro-canvas" aria-label="8 Ball Pool table. Aim on the table, then pull the side cue down and release to shoot. You can also drag backwards from the white ball." onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={()=>{aimingRef.current=false;dragRef.current=null;}}/></div>
+        <div className="pool-table-stage"><canvas ref={canvasRef} width={POOL_WIDTH} height={POOL_HEIGHT} className="pool-pro-canvas" aria-label="8 Ball Pool table. Aim on the table. On PC, hold the right mouse button to charge power and release to shoot." onContextMenu={(event)=>event.preventDefault()} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel}/></div>
         <aside className="pool-pocket-rack" aria-label="Pocketed balls"><div className="rack-label">POTTED</div><div className="rack-channel">{pocketedNumbers.length?pocketedNumbers.slice(-5).map(n=><PoolBallBadge key={n} number={n}/>):<div className="empty-rack-lines"/>}</div><button className="pool-icon-button" aria-label="How to play" title="How to play" onClick={()=>setHelpOpen(true)}>?</button></aside>
       </main>
       <footer className={`pool-shot-footer ${ballInHand?'pool-hand-footer':''}`}><span className="pool-status-dot"/><p aria-live="polite">{ballInHand&&turn==='user'?'Ball in hand: tap a clear place on the table.':message}</p><button onClick={()=>setHelpOpen(true)}>How to play</button><span className="pool-rotate-hint">Landscape = larger table</span></footer>
     </div>
     {exitRequested&&<ExitConfirmModal onCancel={()=>setExitRequested(false)} onConfirm={onBack}/>}
-    {helpOpen&&<div className="match-exit-overlay"><section className="match-exit-modal" role="dialog" aria-modal="true" aria-labelledby="pool-help-title"><h2 id="pool-help-title">Your next shot</h2><p>Aim on the table, then pull the side cue downward like a bow. The farther you pull, the stronger the shot. Release it to shoot automatically.</p><p>The cue on the table pulls back at the same time. You can also drag backwards directly from the white ball and release.</p><p><strong>PC keyboard:</strong> hold 8 or 2 to rotate the cue smoothly. Hold Enter to build power; release Enter to shoot.</p><p>Clear your solids or stripes, then pot the 8-ball. A foul gives your opponent ball-in-hand.</p><button className="start-match-btn" onClick={()=>setHelpOpen(false)}>Got it</button></section></div>}
+    {helpOpen&&<div className="match-exit-overlay"><section className="match-exit-modal" role="dialog" aria-modal="true" aria-labelledby="pool-help-title"><h2 id="pool-help-title">Your next shot</h2><p>Aim on the table, then pull the side cue downward like a bow. The farther you pull, the stronger the shot. Release it to shoot automatically.</p><p>The cue on the table pulls back at the same time. You can also drag backwards directly from the white ball and release.</p><p><strong>PC controls:</strong> hold the RIGHT mouse button to charge power from 5% to 100%; release it to hit the ball. You can move the mouse while holding to adjust aim. Keyboard: hold 8 or 2 to rotate the cue, or hold Enter to charge and release Enter to shoot.</p><p>Clear your solids or stripes, then pot the 8-ball. A foul gives your opponent ball-in-hand.</p><button className="start-match-btn" onClick={()=>setHelpOpen(false)}>Got it</button></section></div>}
   </div>;
 }
 
@@ -3491,7 +4178,7 @@ export default function SamatkarGamingArena({
                 </label>
 
                 <div className="bet-options">
-                  {[10, 25, 50, 100].map(
+                  {[10, 20, 25, 50, 100].map(
                     (amount) => (
                       <button
                         key={amount}
@@ -3517,6 +4204,7 @@ export default function SamatkarGamingArena({
                   <input
                     type="number"
                     min="10"
+                    step="1"
                     max={opponentType === "computer" ? 100 : 20000}
                     value={
                       customBet
@@ -5360,7 +6048,7 @@ const POOL_PRO_STYLES=`
 .professional-pool:fullscreen {overflow:auto;display:flex;align-items:center;justify-content:center}.professional-pool:fullscreen .pool-game-shell {max-width:1500px}
 .ludo-setup-modal,.ludo-setup-modal * {box-sizing:border-box}.ludo-setup-modal {max-height:calc(100dvh - 32px);overflow:auto;position:relative;width:min(530px,100%);background:linear-gradient(145deg,#183626,#101e30);border:1px solid #577961;border-radius:24px;padding:30px;color:#fff;box-shadow:0 25px 90px #0008}.ludo-setup-modal h2 {margin:8px 0 5px;font-size:26px}.ludo-setup-modal>p {color:#b2c6bf;font-size:13px;line-height:1.5}.setup-eyebrow {font-size:10px;letter-spacing:2px;color:#97df9d;font-weight:800}.setup-close {position:absolute;right:14px;top:10px;border:0;background:transparent;color:#b4c7c3;font-size:27px;cursor:pointer}.ludo-mode-options {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 8px}.ludo-mode-options button {padding:14px;border-radius:12px;border:1px solid #466252;background:#0b1924;color:#d1dcd8;cursor:pointer}.ludo-mode-options button.selected {border-color:#9ee28c;background:#204331;box-shadow:0 0 0 1px #9ee28c55}.ludo-mode-options strong,.ludo-mode-options span {display:block}.ludo-mode-options span {font-size:10px;margin-top:5px;color:#a9bdb5}.online-room-label {margin:4px 0 16px}.player-count-options {display:flex;gap:9px;margin:23px 0}.player-count-options button {flex:1;background:#0b1924;border:1px solid #466252;border-radius:12px;padding:15px 6px;color:#d1dcd8;cursor:pointer}.player-count-options button.selected {border-color:#9ee28c;background:#204331;box-shadow:0 0 0 1px #9ee28c55}.player-count-options strong {display:block;font-size:16px}.player-count-options span {display:block;font-size:10px;margin-top:7px}.setup-bet-label {display:flex;align-items:center;gap:12px;font-size:14px;font-weight:700}.setup-bet-label input {min-width:0;width:120px;padding:10px 12px;border:1px solid #577568;border-radius:9px;background:#09161d;color:#fff;font-size:17px}.setup-bet-label>span {color:#93b7a3;font-size:12px}.ludo-prize-preview {display:flex;justify-content:space-between;margin-top:20px;border-radius:13px;background:#06171199;padding:15px}.ludo-prize-preview small {display:block;color:#9db2a7;font-size:11px}.ludo-prize-preview strong {display:block;margin-top:5px;color:#fde365;font-size:20px}.setup-stake-note {font-size:11px!important}.setup-error {color:#ffb8ad!important}.inactive-player {opacity:.45}.inactive-dot {width:18px;height:18px;border-radius:50%;background:var(--player-color);margin:10px}
 .coming-games-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:2px}.coming-game-card{position:relative;cursor:default!important;opacity:.72;filter:saturate(.72)}.coming-game-card:hover{transform:none!important}.coming-soon-pill{margin-left:auto;align-self:center;padding:7px 9px;border-radius:999px;border:1px solid #8fa5ba55;background:#09131ecc;color:#a8bfd2;font-size:8px;font-weight:900;letter-spacing:.5px;white-space:nowrap}@media(max-width:900px){.coming-games-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.coming-games-grid{grid-template-columns:1fr}.coming-soon-pill{font-size:7px}}
-@media(max-width:760px){.professional-pool.arena-game-page {padding:8px}.pool-hud {grid-template-columns:34px minmax(0,1fr) 55px minmax(0,1fr) 30px;gap:5px;padding:2px 0 8px}.pool-contender {gap:5px}.pool-contender .player-avatar {width:42px;height:48px;border-radius:10px;border-width:2px;font-size:18px}.pool-nameplate {font-size:10px;padding:3px 4px;gap:2px}.pool-nameplate small {display:none}.pool-ball-row {gap:1px}.pool-ball-badge {width:15px;height:15px}.pool-ball-badge i {font-size:7px;width:9px;height:9px}.pool-match-prize {min-height:57px;border-radius:11px;padding:3px}.pool-match-prize svg {height:20px;width:32px}.pool-match-prize strong {font-size:17px}.pool-match-prize small {font-size:5px;letter-spacing:.2px}.pool-menu-button,.pool-hud>.pool-icon-button {width:30px;height:34px;padding:5px;border-width:1px;border-radius:9px}.pool-topline {padding:0 40px 7px;font-size:8px}.pool-topline strong {font-size:10px}.pool-playfield {grid-template-columns:33px minmax(0,1fr) 30px;gap:5px;width:100%}.pool-power-column {padding:7px 3px 5px;gap:5px;border-radius:10px}.pool-power-column label {font-size:6px;letter-spacing:0}.pool-power-column>strong {font-size:9px}.cue-pull-rail {width:25px;min-height:55px}.pool-power-column>small{font-size:5px}.pool-pocket-rack {padding:5px 2px;gap:4px;border-radius:12px}.rack-label {font-size:5px;letter-spacing:0}.rack-channel {padding:3px 0;gap:1px}.rack-channel .pool-ball-badge {width:17px;height:17px}.rack-channel .pool-ball-badge i {width:10px;height:10px;font-size:7px}.pool-pocket-rack .pool-icon-button {width:21px;height:22px;padding:1px}.pool-pro-canvas {border-radius:13px}.pool-shot-footer {padding:8px 10px;font-size:10px;gap:6px}.pool-shot-footer button {font-size:9px}.pool-rotate-hint {display:block}.ludo-setup-modal {padding:22px}.player-count-options strong {font-size:14px}}
+@media(max-width:760px){.game-reaction-picker{width:160px;grid-template-columns:repeat(5,1fr);right:-4px}.game-reaction-choice{font-size:18px;padding:5px 2px}.professional-pool.arena-game-page {padding:8px}.pool-hud {grid-template-columns:34px minmax(0,1fr) 55px minmax(0,1fr) 30px;gap:5px;padding:2px 0 8px}.pool-contender {gap:5px}.pool-contender .player-avatar {width:42px;height:48px;border-radius:10px;border-width:2px;font-size:18px}.pool-nameplate {font-size:10px;padding:3px 4px;gap:2px}.pool-nameplate small {display:none}.pool-ball-row {gap:1px}.pool-ball-badge {width:15px;height:15px}.pool-ball-badge i {font-size:7px;width:9px;height:9px}.pool-match-prize {min-height:57px;border-radius:11px;padding:3px}.pool-match-prize svg {height:20px;width:32px}.pool-match-prize strong {font-size:17px}.pool-match-prize small {font-size:5px;letter-spacing:.2px}.pool-menu-button,.pool-hud>.pool-icon-button {width:30px;height:34px;padding:5px;border-width:1px;border-radius:9px}.pool-topline {padding:0 40px 7px;font-size:8px}.pool-topline strong {font-size:10px}.pool-playfield {grid-template-columns:33px minmax(0,1fr) 30px;gap:5px;width:100%}.pool-power-column {padding:7px 3px 5px;gap:5px;border-radius:10px}.pool-power-column label {font-size:6px;letter-spacing:0}.pool-power-column>strong {font-size:9px}.cue-pull-rail {width:25px;min-height:55px}.pool-power-column>small{font-size:5px}.pool-pocket-rack {padding:5px 2px;gap:4px;border-radius:12px}.rack-label {font-size:5px;letter-spacing:0}.rack-channel {padding:3px 0;gap:1px}.rack-channel .pool-ball-badge {width:17px;height:17px}.rack-channel .pool-ball-badge i {width:10px;height:10px;font-size:7px}.pool-pocket-rack .pool-icon-button {width:21px;height:22px;padding:1px}.pool-pro-canvas {border-radius:13px}.pool-shot-footer {padding:8px 10px;font-size:10px;gap:6px}.pool-shot-footer button {font-size:9px}.pool-rotate-hint {display:block}.ludo-setup-modal {padding:22px}.player-count-options strong {font-size:14px}}
 @media(max-width:500px) and (orientation:portrait){.pool-hud {grid-template-columns:30px minmax(0,1fr) 48px minmax(0,1fr);gap:5px}.pool-hud>.pool-icon-button {display:none}.pool-contender-user,.pool-contender-ai {flex-direction:column;gap:5px}.pool-contender-user .pool-contender-details {order:2}.pool-contender .player-avatar {width:49px;height:53px}.pool-contender-details {width:100%}.pool-ball-row {justify-content:center}.pool-topline {padding:3px 2px 8px}.pool-playfield {grid-template-columns:30px minmax(0,1fr) 27px;gap:3px}.pool-shot-footer {flex-wrap:wrap}.pool-rotate-hint {width:100%;text-align:center}.pool-pocket-rack .rack-channel .pool-ball-badge {width:14px;height:14px}.rack-channel .pool-ball-badge i {width:8px;height:8px;font-size:6px}}
 @media(max-height:520px) and (orientation:landscape){.professional-pool.arena-game-page {padding:5px}.pool-hud {padding:0 3px 4px}.pool-contender .player-avatar {width:43px;height:46px}.pool-match-prize {min-height:48px}.pool-match-prize svg {height:19px}.pool-topline {padding-bottom:4px}.pool-playfield {width:min(100%,calc((100dvh - 148px)*1.8 + 85px))}.pool-shot-footer {margin-top:6px;padding:5px 10px}.pool-power-column {padding-top:7px;gap:5px}.pool-power-track {min-height:45px}}
 
@@ -5404,16 +6092,21 @@ const REALTIME_POOL_PATCH = `
 
 .professional-pool .rack-channel {
   min-height: 0 !important;
-  height: 140px !important;
-  max-height: 140px !important;
-  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: 100% !important;
+  flex: 1 1 auto !important;
   overflow: hidden !important;
+}
+
+.professional-pool .pool-pocket-rack {
+  align-self: stretch !important;
 }
 
 @media (max-width: 760px) {
   .professional-pool .rack-channel {
-    height: 100px !important;
-    max-height: 100px !important;
+    height: auto !important;
+    max-height: 100% !important;
+    flex: 1 1 auto !important;
   }
 }
 

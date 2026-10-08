@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 import InviteBonusSection from "./InviteBonusSection";
 
@@ -29,6 +29,7 @@ import { LanguageProvider, useLanguage } from "./LanguageContext";
 import Bannerad from "./Bannerad";
 import NativeBanner from "./NativeBanner";
 import Banner320 from "./Banner320";
+import { io } from "socket.io-client";
 
 
 
@@ -36,7 +37,1398 @@ import Banner320 from "./Banner320";
 
 const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app";
 
+const USER_TOKEN_KEY = "samatkaarUserSession";
 
+
+
+
+const NOTIFICATION_ICONS = {
+  friend_request: "👤",
+  friend_response: "🤝",
+  challenge: "🎮",
+  challenge_accepted: "⚔️",
+  challenge_rejected: "❌",
+  deposit_approved: "💰",
+  deposit_rejected: "⚠️",
+  admin_message: "📢",
+  message: "💬",
+  system: "🔔"
+};
+
+function formatNotificationTime(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const diff = Math.max(0, Date.now() - date.getTime());
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) return "Just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
+
+  return date.toLocaleDateString();
+}
+
+function NotificationCenter({
+  user,
+  navigateToPage,
+  triggerNotification
+}) {
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [liveNotice, setLiveNotice] = useState(null);
+  const [adminComposerOpen, setAdminComposerOpen] = useState(false);
+  const [adminSending, setAdminSending] = useState(false);
+  const [adminForm, setAdminForm] = useState({
+    target: "all",
+    phone: "",
+    title: "",
+    message: "",
+    priority: "important"
+  });
+
+  const socketRef = useRef(null);
+  const liveTimerRef = useRef(null);
+
+  const getToken = () =>
+    localStorage.getItem(USER_TOKEN_KEY) || "";
+
+  const authHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${getToken()}`
+  });
+
+  const loadNotifications = useCallback(
+    async (silent = false) => {
+      if (!user?.id || !getToken()) return;
+
+      if (!silent) {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/api/notifications?limit=60`,
+          {
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${getToken()}`
+            },
+            cache: "no-store"
+          }
+        );
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Notifications load nahi ho sake."
+          );
+        }
+
+        setNotifications(
+          Array.isArray(data.notifications)
+            ? data.notifications
+            : []
+        );
+        setUnreadCount(Number(data.unreadCount || 0));
+      } catch (err) {
+        console.error("Notification load error:", err);
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [user?.id]
+  );
+
+  useEffect(() => {
+    if (!user?.id) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setOpen(false);
+      return;
+    }
+
+    loadNotifications();
+
+    const polling = window.setInterval(() => {
+      loadNotifications(true);
+    }, 30000);
+
+    return () => {
+      window.clearInterval(polling);
+    };
+  }, [user?.id, loadNotifications]);
+
+  useEffect(() => {
+    if (!user?.id || !getToken()) return;
+
+    const socket = io(BACKEND_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 700,
+      reconnectionDelayMax: 5000
+    });
+
+    socketRef.current = socket;
+
+    const subscribe = () => {
+      socket.emit("notification:subscribe", {
+        token: getToken()
+      });
+    };
+
+    const onNewNotification = (notification) => {
+      if (!notification?.id) return;
+
+      setNotifications((prev) => {
+        if (
+          prev.some(
+            (item) => item.id === notification.id
+          )
+        ) {
+          return prev;
+        }
+
+        return [notification, ...prev].slice(0, 80);
+      });
+
+      if (!notification.read) {
+        setUnreadCount((prev) => prev + 1);
+      }
+
+      setLiveNotice(notification);
+
+      if (liveTimerRef.current) {
+        window.clearTimeout(liveTimerRef.current);
+      }
+
+      liveTimerRef.current = window.setTimeout(() => {
+        setLiveNotice(null);
+      }, 5200);
+    };
+
+    socket.on("connect", subscribe);
+    socket.on("notification:new", onNewNotification);
+
+    return () => {
+      if (liveTimerRef.current) {
+        window.clearTimeout(liveTimerRef.current);
+      }
+
+      socket.off("connect", subscribe);
+      socket.off(
+        "notification:new",
+        onNewNotification
+      );
+      socket.disconnect();
+
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    };
+  }, [user?.id]);
+
+  const markRead = async (id) => {
+    const existing = notifications.find(
+      (item) => item.id === id
+    );
+
+    if (!existing || existing.read) return;
+
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, read: true }
+          : item
+      )
+    );
+    setUnreadCount((prev) =>
+      Math.max(0, prev - 1)
+    );
+
+    try {
+      await fetch(
+        `${BACKEND_URL}/api/notifications/${id}/read`,
+        {
+          method: "PATCH",
+          headers: authHeaders()
+        }
+      );
+    } catch (err) {
+      console.error(
+        "Notification read sync failed:",
+        err
+      );
+      loadNotifications(true);
+    }
+  };
+
+  const markAllRead = async () => {
+    setNotifications((prev) =>
+      prev.map((item) => ({
+        ...item,
+        read: true
+      }))
+    );
+    setUnreadCount(0);
+
+    try {
+      await fetch(
+        `${BACKEND_URL}/api/notifications/mark-all-read`,
+        {
+          method: "POST",
+          headers: authHeaders()
+        }
+      );
+    } catch (err) {
+      console.error("Mark all read failed:", err);
+      loadNotifications(true);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    const existing = notifications.find(
+      (item) => item.id === id
+    );
+
+    setNotifications((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
+
+    if (existing && !existing.read) {
+      setUnreadCount((prev) =>
+        Math.max(0, prev - 1)
+      );
+    }
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/notifications/${id}`,
+        {
+          method: "DELETE",
+          headers: authHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Delete failed");
+      }
+    } catch (err) {
+      console.error(
+        "Notification delete failed:",
+        err
+      );
+      loadNotifications(true);
+    }
+  };
+
+  const actOnFriendRequest = async (
+    notification,
+    action
+  ) => {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/notifications/${notification.id}/action`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ action })
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Action complete nahi ho saka."
+        );
+      }
+
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notification.id
+            ? {
+                ...item,
+                read: true,
+                actionStatus:
+                  action === "accept"
+                    ? "accepted"
+                    : "rejected"
+              }
+            : item
+        )
+      );
+
+      if (!notification.read) {
+        setUnreadCount((prev) =>
+          Math.max(0, prev - 1)
+        );
+      }
+
+      triggerNotification(
+        action === "accept"
+          ? "✅ Friend request accepted."
+          : "Friend request rejected.",
+        action === "accept"
+          ? "success"
+          : "info"
+      );
+    } catch (err) {
+      triggerNotification(
+        `⚠️ ${err.message}`,
+        "error"
+      );
+    }
+  };
+
+  const openChallenge = async (
+    notification
+  ) => {
+    try {
+      await fetch(
+        `${BACKEND_URL}/api/notifications/${notification.id}/action`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            action: "open"
+          })
+        }
+      );
+    } catch {}
+
+    markRead(notification.id);
+    setOpen(false);
+    navigateToPage("gamingArena");
+  };
+
+  const sendAdminNotification = async (
+    event
+  ) => {
+    event.preventDefault();
+
+    if (
+      !adminForm.title.trim() ||
+      !adminForm.message.trim()
+    ) {
+      triggerNotification(
+        "⚠️ Title aur message required hain.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      adminForm.target === "specific" &&
+      !adminForm.phone.trim()
+    ) {
+      triggerNotification(
+        "⚠️ User ka phone number likhein.",
+        "error"
+      );
+      return;
+    }
+
+    setAdminSending(true);
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/admin/notifications/broadcast`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            target: adminForm.target,
+            phone: adminForm.phone.trim(),
+            title: adminForm.title.trim(),
+            message: adminForm.message.trim(),
+            priority: adminForm.priority
+          })
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Notification send nahi ho saka."
+        );
+      }
+
+      triggerNotification(
+        `📢 Notification ${
+          data.sentCount || 0
+        } user(s) ko send ho gaya.`,
+        "success"
+      );
+
+      setAdminForm({
+        target: "all",
+        phone: "",
+        title: "",
+        message: "",
+        priority: "important"
+      });
+      setAdminComposerOpen(false);
+    } catch (err) {
+      triggerNotification(
+        `⚠️ ${err.message}`,
+        "error"
+      );
+    } finally {
+      setAdminSending(false);
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="samatkaar-notification-fab"
+        onClick={() => {
+          setOpen((prev) => !prev);
+
+          if (!open) {
+            loadNotifications(true);
+          }
+        }}
+        aria-label="Open notifications"
+        title="Notifications"
+      >
+        <span className="notification-fab-icon">
+          💬
+        </span>
+
+        {unreadCount > 0 && (
+          <span className="notification-fab-badge">
+            {unreadCount > 99
+              ? "99+"
+              : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {liveNotice && !open && (
+        <button
+          type="button"
+          className="notification-live-toast"
+          onClick={() => {
+            setOpen(true);
+            markRead(liveNotice.id);
+            setLiveNotice(null);
+          }}
+        >
+          <span className="notification-live-icon">
+            {NOTIFICATION_ICONS[
+              liveNotice.type
+            ] || "🔔"}
+          </span>
+
+          <span className="notification-live-copy">
+            <strong>{liveNotice.title}</strong>
+            <small>{liveNotice.message}</small>
+          </span>
+        </button>
+      )}
+
+      {open && (
+        <>
+          <button
+            type="button"
+            className="notification-drawer-backdrop"
+            onClick={() => setOpen(false)}
+            aria-label="Close notification center"
+          />
+
+          <aside
+            className="notification-drawer"
+            aria-label="Notification Center"
+          >
+            <div className="notification-drawer-header">
+              <div>
+                <span className="notification-eyebrow">
+                  SAMATKAAR LIVE
+                </span>
+                <h3>Notifications</h3>
+                <p>
+                  {unreadCount > 0
+                    ? `${unreadCount} unread`
+                    : "You're all caught up"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="notification-close-btn"
+                onClick={() => setOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="notification-toolbar">
+              <button
+                type="button"
+                onClick={() =>
+                  loadNotifications()
+                }
+              >
+                ↻ Refresh
+              </button>
+
+              <button
+                type="button"
+                onClick={markAllRead}
+                disabled={unreadCount === 0}
+              >
+                ✓ Read all
+              </button>
+
+              {user?.role === "admin" && (
+                <button
+                  type="button"
+                  className="notification-admin-btn"
+                  onClick={() =>
+                    setAdminComposerOpen(
+                      (prev) => !prev
+                    )
+                  }
+                >
+                  📢 Send Notice
+                </button>
+              )}
+            </div>
+
+            {user?.role === "admin" &&
+              adminComposerOpen && (
+                <form
+                  className="notification-admin-composer"
+                  onSubmit={
+                    sendAdminNotification
+                  }
+                >
+                  <div className="notification-admin-title">
+                    <strong>
+                      Admin Broadcast
+                    </strong>
+                    <span>
+                      Only admin can send
+                    </span>
+                  </div>
+
+                  <div className="notification-target-row">
+                    <button
+                      type="button"
+                      className={
+                        adminForm.target ===
+                        "all"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        setAdminForm(
+                          (prev) => ({
+                            ...prev,
+                            target: "all",
+                            phone: ""
+                          })
+                        )
+                      }
+                    >
+                      All Users
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
+                        adminForm.target ===
+                        "specific"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        setAdminForm(
+                          (prev) => ({
+                            ...prev,
+                            target:
+                              "specific"
+                          })
+                        )
+                      }
+                    >
+                      One User
+                    </button>
+                  </div>
+
+                  {adminForm.target ===
+                    "specific" && (
+                    <input
+                      value={
+                        adminForm.phone
+                      }
+                      onChange={(event) =>
+                        setAdminForm(
+                          (prev) => ({
+                            ...prev,
+                            phone:
+                              event.target
+                                .value
+                          })
+                        )
+                      }
+                      placeholder="User phone number"
+                      maxLength={30}
+                    />
+                  )}
+
+                  <input
+                    value={adminForm.title}
+                    onChange={(event) =>
+                      setAdminForm(
+                        (prev) => ({
+                          ...prev,
+                          title:
+                            event.target
+                              .value
+                        })
+                      )
+                    }
+                    placeholder="Notification title"
+                    maxLength={120}
+                  />
+
+                  <textarea
+                    value={adminForm.message}
+                    onChange={(event) =>
+                      setAdminForm(
+                        (prev) => ({
+                          ...prev,
+                          message:
+                            event.target
+                              .value
+                        })
+                      )
+                    }
+                    placeholder="Write your important message..."
+                    maxLength={1200}
+                    rows={4}
+                  />
+
+                  <select
+                    value={
+                      adminForm.priority
+                    }
+                    onChange={(event) =>
+                      setAdminForm(
+                        (prev) => ({
+                          ...prev,
+                          priority:
+                            event.target
+                              .value
+                        })
+                      )
+                    }
+                  >
+                    <option value="important">
+                      🔴 Important
+                    </option>
+                    <option value="normal">
+                      🔵 Normal
+                    </option>
+                  </select>
+
+                  <button
+                    type="submit"
+                    className="notification-send-btn"
+                    disabled={adminSending}
+                  >
+                    {adminSending
+                      ? "Sending..."
+                      : "Send Notification"}
+                  </button>
+                </form>
+              )}
+
+            <div className="notification-list">
+              {loading &&
+              notifications.length === 0 ? (
+                <div className="notification-empty">
+                  <span>⏳</span>
+                  <strong>
+                    Loading notifications...
+                  </strong>
+                </div>
+              ) : notifications.length ===
+                0 ? (
+                <div className="notification-empty">
+                  <span>🔕</span>
+                  <strong>
+                    No notifications yet
+                  </strong>
+                  <small>
+                    Friend requests,
+                    challenges and official
+                    updates will appear here.
+                  </small>
+                </div>
+              ) : (
+                notifications.map(
+                  (notification) => {
+                    const pendingFriend =
+                      notification.type ===
+                        "friend_request" &&
+                      notification.actionStatus ===
+                        "pending";
+
+                    return (
+                      <article
+                        key={
+                          notification.id
+                        }
+                        className={`notification-card ${
+                          notification.read
+                            ? "read"
+                            : "unread"
+                        } ${
+                          notification.data
+                            ?.priority ===
+                          "important"
+                            ? "important"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          markRead(
+                            notification.id
+                          )
+                        }
+                      >
+                        <div className="notification-card-icon">
+                          {NOTIFICATION_ICONS[
+                            notification.type
+                          ] || "🔔"}
+                        </div>
+
+                        <div className="notification-card-body">
+                          <div className="notification-card-top">
+                            <strong>
+                              {
+                                notification.title
+                              }
+                            </strong>
+
+                            {!notification.read && (
+                              <span className="notification-unread-dot" />
+                            )}
+                          </div>
+
+                          <p>
+                            {
+                              notification.message
+                            }
+                          </p>
+
+                          <div className="notification-meta">
+                            <span>
+                              {formatNotificationTime(
+                                notification.createdAt
+                              )}
+                            </span>
+
+                            {notification.senderName && (
+                              <span>
+                                •{" "}
+                                {
+                                  notification.senderName
+                                }
+                              </span>
+                            )}
+                          </div>
+
+                          {pendingFriend && (
+                            <div className="notification-actions">
+                              <button
+                                type="button"
+                                className="accept"
+                                onClick={(
+                                  event
+                                ) => {
+                                  event.stopPropagation();
+                                  actOnFriendRequest(
+                                    notification,
+                                    "accept"
+                                  );
+                                }}
+                              >
+                                ✓ Accept
+                              </button>
+
+                              <button
+                                type="button"
+                                className="reject"
+                                onClick={(
+                                  event
+                                ) => {
+                                  event.stopPropagation();
+                                  actOnFriendRequest(
+                                    notification,
+                                    "reject"
+                                  );
+                                }}
+                              >
+                                ✕ Reject
+                              </button>
+                            </div>
+                          )}
+
+                          {notification.type ===
+                            "challenge" &&
+                            notification.actionStatus ===
+                              "pending" && (
+                              <div className="notification-actions">
+                                <button
+                                  type="button"
+                                  className="open-game"
+                                  onClick={(
+                                    event
+                                  ) => {
+                                    event.stopPropagation();
+                                    openChallenge(
+                                      notification
+                                    );
+                                  }}
+                                >
+                                  🎮 Open Gaming
+                                  Arena
+                                </button>
+                              </div>
+                            )}
+
+                          {[
+                            "accepted",
+                            "rejected"
+                          ].includes(
+                            notification.actionStatus
+                          ) && (
+                            <div
+                              className={`notification-status ${notification.actionStatus}`}
+                            >
+                              {notification.actionStatus ===
+                              "accepted"
+                                ? "✓ Accepted"
+                                : "✕ Rejected"}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="notification-delete-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteNotification(
+                              notification.id
+                            );
+                          }}
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </article>
+                    );
+                  }
+                )
+              )}
+            </div>
+          </aside>
+        </>
+      )}
+
+      <style>{`
+        .samatkaar-notification-fab{
+          position:fixed;
+          z-index:2147481000;
+          right:18px;
+          top:86px;
+          width:52px;
+          height:52px;
+          border:none;
+          border-radius:17px;
+          display:grid;
+          place-items:center;
+          cursor:pointer;
+          background:linear-gradient(145deg,#0f172a,#172554);
+          color:#fff;
+          box-shadow:0 16px 40px rgba(2,6,23,.38),inset 0 0 0 1px rgba(255,255,255,.12);
+          transition:transform .18s ease,box-shadow .18s ease;
+        }
+        .samatkaar-notification-fab:hover{
+          transform:translateY(-2px) scale(1.03);
+          box-shadow:0 20px 45px rgba(2,6,23,.48)
+        }
+        .notification-fab-icon{
+          font-size:23px;
+          line-height:1
+        }
+        .notification-fab-badge{
+          position:absolute;
+          top:-6px;
+          right:-5px;
+          min-width:21px;
+          height:21px;
+          padding:0 5px;
+          display:grid;
+          place-items:center;
+          border-radius:999px;
+          background:#ef4444;
+          color:white;
+          border:2px solid #fff;
+          font:800 11px/1 system-ui;
+          box-shadow:0 4px 12px rgba(239,68,68,.45);
+        }
+        .notification-live-toast{
+          position:fixed;
+          z-index:2147482000;
+          right:82px;
+          top:86px;
+          width:min(360px,calc(100vw - 110px));
+          border:1px solid rgba(255,255,255,.14);
+          border-radius:18px;
+          background:linear-gradient(145deg,rgba(15,23,42,.98),rgba(30,41,59,.98));
+          color:#fff;
+          padding:13px 15px;
+          display:flex;
+          gap:12px;
+          text-align:left;
+          cursor:pointer;
+          box-shadow:0 20px 55px rgba(2,6,23,.5);
+          animation:notificationToastIn .26s ease-out;
+        }
+        .notification-live-icon{
+          width:38px;
+          height:38px;
+          flex:0 0 38px;
+          display:grid;
+          place-items:center;
+          border-radius:12px;
+          background:rgba(59,130,246,.16);
+          font-size:20px;
+        }
+        .notification-live-copy{
+          display:flex;
+          flex-direction:column;
+          gap:3px;
+          min-width:0
+        }
+        .notification-live-copy strong{
+          font-size:13px;
+          color:#f8fafc
+        }
+        .notification-live-copy small{
+          font-size:12px;
+          color:#cbd5e1;
+          line-height:1.35;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis
+        }
+        .notification-drawer-backdrop{
+          position:fixed;
+          inset:0;
+          z-index:2147482500;
+          border:none;
+          background:rgba(2,6,23,.38);
+          backdrop-filter:blur(2px);
+          cursor:default;
+        }
+        .notification-drawer{
+          position:fixed;
+          z-index:2147483000;
+          top:0;
+          right:0;
+          bottom:0;
+          width:min(410px,100vw);
+          display:flex;
+          flex-direction:column;
+          background:linear-gradient(180deg,#07111f 0%,#0b1220 42%,#090f1a 100%);
+          color:#e2e8f0;
+          border-left:1px solid rgba(148,163,184,.16);
+          box-shadow:-26px 0 70px rgba(2,6,23,.58);
+          animation:notificationDrawerIn .25s ease-out;
+        }
+        .notification-drawer-header{
+          display:flex;
+          align-items:flex-start;
+          justify-content:space-between;
+          gap:12px;
+          padding:20px 18px 14px;
+          border-bottom:1px solid rgba(148,163,184,.13);
+          background:rgba(15,23,42,.72);
+          backdrop-filter:blur(16px);
+        }
+        .notification-eyebrow{
+          font-size:9px;
+          letter-spacing:.17em;
+          color:#60a5fa;
+          font-weight:900
+        }
+        .notification-drawer-header h3{
+          margin:3px 0 1px;
+          font-size:22px;
+          color:#fff
+        }
+        .notification-drawer-header p{
+          margin:0;
+          color:#94a3b8;
+          font-size:12px
+        }
+        .notification-close-btn{
+          width:36px;
+          height:36px;
+          border-radius:11px;
+          border:1px solid rgba(148,163,184,.16);
+          background:#111827;
+          color:#cbd5e1;
+          cursor:pointer;
+          font-size:15px
+        }
+        .notification-toolbar{
+          display:flex;
+          gap:7px;
+          padding:10px 12px;
+          border-bottom:1px solid rgba(148,163,184,.1);
+          overflow-x:auto;
+          background:#0b1322
+        }
+        .notification-toolbar button{
+          flex:0 0 auto;
+          border:1px solid rgba(148,163,184,.16);
+          border-radius:10px;
+          background:#111827;
+          color:#cbd5e1;
+          padding:8px 10px;
+          font-size:11px;
+          font-weight:800;
+          cursor:pointer
+        }
+        .notification-toolbar button:disabled{
+          opacity:.4;
+          cursor:not-allowed
+        }
+        .notification-toolbar .notification-admin-btn{
+          background:#172554;
+          color:#bfdbfe;
+          border-color:#1d4ed8
+        }
+        .notification-admin-composer{
+          margin:10px 12px 4px;
+          padding:13px;
+          border-radius:15px;
+          border:1px solid rgba(96,165,250,.2);
+          background:linear-gradient(145deg,#0f172a,#111c32);
+          display:flex;
+          flex-direction:column;
+          gap:9px
+        }
+        .notification-admin-title{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:8px
+        }
+        .notification-admin-title strong{
+          font-size:13px;
+          color:#fff
+        }
+        .notification-admin-title span{
+          font-size:9px;
+          color:#60a5fa;
+          text-transform:uppercase;
+          font-weight:800
+        }
+        .notification-admin-composer input,
+        .notification-admin-composer textarea,
+        .notification-admin-composer select{
+          width:100%;
+          border:1px solid #273449;
+          border-radius:10px;
+          background:#07111f;
+          color:#e5e7eb;
+          padding:10px 11px;
+          outline:none;
+          font:500 12px/1.4 system-ui
+        }
+        .notification-admin-composer textarea{
+          resize:vertical;
+          min-height:78px
+        }
+        .notification-target-row{
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:7px
+        }
+        .notification-target-row button{
+          border:1px solid #26364c;
+          border-radius:9px;
+          background:#0b1423;
+          color:#94a3b8;
+          padding:8px;
+          cursor:pointer;
+          font-size:11px;
+          font-weight:800
+        }
+        .notification-target-row button.active{
+          background:#1d4ed8;
+          color:white;
+          border-color:#3b82f6
+        }
+        .notification-send-btn{
+          border:none;
+          border-radius:10px;
+          background:linear-gradient(135deg,#2563eb,#4f46e5);
+          color:white;
+          padding:10px 12px;
+          font-size:12px;
+          font-weight:900;
+          cursor:pointer
+        }
+        .notification-list{
+          flex:1;
+          overflow-y:auto;
+          padding:10px 10px 24px
+        }
+        .notification-card{
+          position:relative;
+          display:grid;
+          grid-template-columns:42px 1fr auto;
+          gap:10px;
+          margin-bottom:8px;
+          padding:12px 9px 12px 11px;
+          border-radius:15px;
+          border:1px solid rgba(148,163,184,.11);
+          background:rgba(15,23,42,.72);
+          cursor:pointer;
+          transition:background .16s ease,border-color .16s ease,transform .16s ease;
+        }
+        .notification-card:hover{
+          background:#111c2e;
+          border-color:rgba(96,165,250,.22);
+          transform:translateY(-1px)
+        }
+        .notification-card.unread{
+          background:linear-gradient(145deg,rgba(30,58,138,.2),rgba(15,23,42,.88));
+          border-color:rgba(96,165,250,.25)
+        }
+        .notification-card.important{
+          box-shadow:inset 3px 0 0 #ef4444
+        }
+        .notification-card-icon{
+          width:42px;
+          height:42px;
+          border-radius:13px;
+          display:grid;
+          place-items:center;
+          background:#111827;
+          border:1px solid rgba(148,163,184,.13);
+          font-size:20px
+        }
+        .notification-card-body{
+          min-width:0
+        }
+        .notification-card-top{
+          display:flex;
+          align-items:center;
+          gap:7px
+        }
+        .notification-card-top strong{
+          font-size:12.5px;
+          color:#f8fafc;
+          line-height:1.25
+        }
+        .notification-unread-dot{
+          width:7px;
+          height:7px;
+          border-radius:50%;
+          background:#3b82f6;
+          box-shadow:0 0 0 3px rgba(59,130,246,.14)
+        }
+        .notification-card p{
+          margin:5px 0 7px;
+          color:#cbd5e1;
+          font-size:11.5px;
+          line-height:1.45
+        }
+        .notification-meta{
+          display:flex;
+          gap:5px;
+          color:#64748b;
+          font-size:9.5px
+        }
+        .notification-actions{
+          display:flex;
+          flex-wrap:wrap;
+          gap:7px;
+          margin-top:9px
+        }
+        .notification-actions button{
+          border:none;
+          border-radius:9px;
+          padding:7px 10px;
+          color:#fff;
+          font-size:10px;
+          font-weight:900;
+          cursor:pointer
+        }
+        .notification-actions .accept{
+          background:#15803d
+        }
+        .notification-actions .reject{
+          background:#7f1d1d
+        }
+        .notification-actions .open-game{
+          background:#1d4ed8
+        }
+        .notification-status{
+          display:inline-flex;
+          margin-top:8px;
+          border-radius:999px;
+          padding:5px 8px;
+          font-size:9px;
+          font-weight:900
+        }
+        .notification-status.accepted{
+          background:rgba(34,197,94,.14);
+          color:#86efac
+        }
+        .notification-status.rejected{
+          background:rgba(239,68,68,.14);
+          color:#fca5a5
+        }
+        .notification-delete-btn{
+          width:27px;
+          height:27px;
+          border:none;
+          border-radius:8px;
+          background:transparent;
+          color:#64748b;
+          cursor:pointer;
+          font-size:17px
+        }
+        .notification-delete-btn:hover{
+          background:#1f2937;
+          color:#fca5a5
+        }
+        .notification-empty{
+          min-height:260px;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          text-align:center;
+          color:#94a3b8;
+          padding:30px
+        }
+        .notification-empty span{
+          font-size:36px;
+          margin-bottom:10px
+        }
+        .notification-empty strong{
+          color:#e2e8f0;
+          font-size:14px
+        }
+        .notification-empty small{
+          margin-top:6px;
+          max-width:250px;
+          line-height:1.5
+        }
+        @keyframes notificationDrawerIn{
+          from{
+            transform:translateX(100%);
+            opacity:.4
+          }
+          to{
+            transform:translateX(0);
+            opacity:1
+          }
+        }
+        @keyframes notificationToastIn{
+          from{
+            transform:translateY(-10px) scale(.97);
+            opacity:0
+          }
+          to{
+            transform:none;
+            opacity:1
+          }
+        }
+        @media(max-width:700px){
+          .samatkaar-notification-fab{
+            top:66px;
+            right:10px;
+            width:45px;
+            height:45px;
+            border-radius:14px
+          }
+          .notification-fab-icon{
+            font-size:20px
+          }
+          .notification-live-toast{
+            top:118px;
+            right:8px;
+            left:8px;
+            width:auto
+          }
+          .notification-drawer{
+            top:56px;
+            right:7px;
+            bottom:7px;
+            left:7px;
+            width:auto;
+            border:1px solid rgba(148,163,184,.16);
+            border-radius:20px;
+            overflow:hidden
+          }
+          .notification-drawer-header{
+            padding:15px 14px 12px
+          }
+          .notification-drawer-header h3{
+            font-size:19px
+          }
+          .notification-toolbar{
+            padding:8px
+          }
+          .notification-card{
+            grid-template-columns:38px 1fr auto;
+            padding:10px 8px 10px 10px
+          }
+          .notification-card-icon{
+            width:38px;
+            height:38px;
+            border-radius:12px;
+            font-size:18px
+          }
+        }
+      `}</style>
+    </>
+  );
+}
 
 function MainApp() {
 
@@ -120,6 +1512,9 @@ function MainApp() {
 
 
 
+  const [balanceHydrated, setBalanceHydrated] = useState(false);
+  const coinSyncQueueRef = useRef(Promise.resolve());
+
   const [pendingPayments, setPendingPayments] = useState(() => {
 
     const saved = localStorage.getItem("goovoPendingPayments");
@@ -153,26 +1548,20 @@ function MainApp() {
 
 
   useEffect(() => {
+    localStorage.setItem("goovoCoins", String(coins));
 
-    localStorage.setItem("goovoCoins", coins);
-
-    if (user) {
-
-      setUser((prev) => {
-
-        if (!prev) return null;
-
-        const updated = { ...prev, coins };
-
-        updateUserCoinsInDatabase(updated.phone, coins);
-
-        return updated;
-
-      });
-
+    if (!user || !balanceHydrated) {
+      return;
     }
 
-  }, [coins]);
+    setUser((prev) => {
+      if (!prev) return null;
+      if (prev.coins === coins) return prev;
+      return { ...prev, coins };
+    });
+
+    updateUserCoinsInDatabase(coins);
+  }, [coins, balanceHydrated]);
 
 
 
@@ -206,29 +1595,92 @@ function MainApp() {
 
 
 
-  // 🔗 Helper to sync coins with Backend Database
+  // 🔒 Authenticated and ordered coin persistence.
+  // Earlier frontend called /api/user/update-coins but the backend did not
+  // actually provide that route, so MongoDB kept the signup balance (50).
+  const updateUserCoinsInDatabase = (newCoins) => {
+    const token = localStorage.getItem(USER_TOKEN_KEY);
 
-  const updateUserCoinsInDatabase = async (phone, newCoins) => {
-
-    try {
-
-      await fetch(`${BACKEND_URL}/api/user/update-coins`, {
-
-        method: "POST",
-
-        headers: { "Content-Type": "application/json" },
-
-        body: JSON.stringify({ phone, coins: newCoins })
-
-      });
-
-    } catch (err) {
-
-      console.error("Failed to sync coins with backend:", err);
-
+    if (!token || !user) {
+      return coinSyncQueueRef.current;
     }
 
+    coinSyncQueueRef.current = coinSyncQueueRef.current
+      .catch(() => {})
+      .then(async () => {
+        const response = await fetch(`${BACKEND_URL}/api/user/update-coins`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            coins: Math.max(0, Math.floor(Number(newCoins) || 0))
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || "Coins save nahi ho sake.");
+        }
+
+        return data;
+      })
+      .catch((err) => {
+        console.error("Failed to sync coins with backend:", err);
+        throw err;
+      });
+
+    return coinSyncQueueRef.current;
   };
+
+  // On refresh/re-open, server is the source of truth.
+  useEffect(() => {
+    const token = localStorage.getItem(USER_TOKEN_KEY);
+
+    if (!user || !token) {
+      setBalanceHydrated(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadLiveAccount = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/user/me`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          cache: "no-store"
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.user) {
+          throw new Error(data.error || "Account balance load nahi ho saka.");
+        }
+
+        if (cancelled) return;
+
+        setUser(data.user);
+        setCoins(Number(data.user.coins || 0));
+      } catch (err) {
+        console.error("Live account refresh failed:", err);
+      } finally {
+        if (!cancelled) {
+          setBalanceHydrated(true);
+        }
+      }
+    };
+
+    loadLiveAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
 
@@ -292,6 +1744,11 @@ function MainApp() {
 
 
 
+      if (data.token) {
+        localStorage.setItem(USER_TOKEN_KEY, data.token);
+      }
+
+      setBalanceHydrated(true);
       setUser(data.user);
 
       if (typeof data.user.coins === "number") {
@@ -392,6 +1849,11 @@ function MainApp() {
 
 
 
+      if (data.token) {
+        localStorage.setItem(USER_TOKEN_KEY, data.token);
+      }
+
+      setBalanceHydrated(true);
       setUser(data.user);
 
       if (typeof data.user.coins === "number") {
@@ -432,16 +1894,24 @@ function MainApp() {
 
 
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      if (user && balanceHydrated) {
+        await updateUserCoinsInDatabase(coins);
+        await coinSyncQueueRef.current.catch(() => {});
+      }
+    } catch (err) {
+      console.error("Final balance sync before logout failed:", err);
+    }
 
     setUser(null);
+    setBalanceHydrated(false);
 
     localStorage.removeItem("goovoCurrentUser");
+    localStorage.removeItem(USER_TOKEN_KEY);
 
     triggerNotification("👋 Logged out successfully!", "info");
-
     setPage("home");
-
   };
 
 
@@ -948,6 +2418,12 @@ function MainApp() {
       )}
 
 
+
+      <NotificationCenter
+        user={user}
+        navigateToPage={navigateToPage}
+        triggerNotification={triggerNotification}
+      />
 
       {/* PAGES ROUTING */}
 
