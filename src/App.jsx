@@ -14,21 +14,27 @@ import Wallet from "./Wallet";
 
 import Profile from "./Profile";
 
-import LuckyDraw from "./LuckyDraw";
+// AdSense review safe: temporarily disabled
+// import LuckyDraw from "./LuckyDraw";
 
-import Winner from "./Winner";
+// AdSense review safe: temporarily disabled
+// import Winner from "./Winner";
 
 import AdminDeposits from "./AdminDeposits";
 
-import SamatkarGamingArena from "./SamatkarGamingArena";
+// AdSense review safe: temporarily disabled
+// import SamatkarGamingArena from "./SamatkarGamingArena";
 
 import PrivacyPolicy, { Terms, RefundPolicy } from "./PolicyPages";
 
 import { LanguageProvider, useLanguage } from "./LanguageContext";
 
-import Bannerad from "./Bannerad";
-import NativeBanner from "./NativeBanner";
-import Banner320 from "./Banner320";
+// AdSense review safe: temporarily disabled
+// import Bannerad from "./Bannerad";
+// AdSense review safe: temporarily disabled
+// import NativeBanner from "./NativeBanner";
+// AdSense review safe: temporarily disabled
+// import Banner320 from "./Banner320";
 import { io } from "socket.io-client";
 
 
@@ -412,7 +418,8 @@ function NotificationCenter({
 
     markRead(notification.id);
     setOpen(false);
-    navigateToPage("gamingArena");
+    triggerNotification("🎮 Gaming Arena is temporarily paused during AdSense review.", "info");
+    navigateToPage("home");
   };
 
   const sendAdminNotification = async (
@@ -1920,7 +1927,7 @@ function MainApp() {
 
     setCoins((prev) => prev + amount);
 
-    triggerNotification(customMessage || `🎉 You earned ${amount} coins!`, "success");
+    triggerNotification(customMessage || `🎉 Coins updated: +${amount}`, "success");
 
   };
 
@@ -1938,7 +1945,7 @@ function MainApp() {
 
     setCoins((prev) => prev - amount);
 
-    triggerNotification(customMessage || `💸 Paid ${amount} coins successfully!`, "info");
+    triggerNotification(customMessage || `💸 Coins updated: -${amount}`, "info");
 
     return true;
 
@@ -1991,12 +1998,22 @@ function MainApp() {
 
 
   const navigateToPage = (newPage) => {
+    if (["luckyDraw", "gamingArena", "winner"].includes(newPage)) {
+      triggerNotification("⏳ This feature is temporarily paused during AdSense review.", "info");
+      setPage("home");
+      setMenuOpen(false);
+      setAboutDropdownOpen(false);
+      setPlayDropdownOpen(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     if (newPage === "adminDeposits" && user?.role !== "admin") {
       triggerNotification("⛔ Admin access required.", "error");
       return;
     }
 
-    if (!user && (newPage === "earn" || newPage === "wallet" || newPage === "luckyDraw")) {
+    if (!user && (newPage === "earn" || newPage === "wallet")) {
 
       triggerNotification("🔒 Feature access ke liye pehle Login / Signup karein!", "error");
 
@@ -2011,6 +2028,7 @@ function MainApp() {
     setMenuOpen(false);
 
     setAboutDropdownOpen(false);
+    setPlayDropdownOpen(false);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -2124,27 +2142,10 @@ function MainApp() {
               {t.home}
             </button>
             <button className={page === "earn" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("earn")}>
-              {t.earn}
+              Arcade
             </button>
 
-            <div style={navStyles.dropdownContainer} onMouseLeave={() => setPlayDropdownOpen(false)}>
-              <button
-                style={{ ...navStyles.navBtn, ...(page === "gamingArena" || page === "winner" ? navStyles.gamingArenaNavBtn : {}), display: "flex", alignItems: "center", gap: "5px" }}
-                onClick={() => { setPlayDropdownOpen(!playDropdownOpen); setAboutDropdownOpen(false); setUserDropdownOpen(false); }}
-              >
-                🎮 Play ▾
-              </button>
-              {playDropdownOpen && (
-                <div style={navStyles.dropdownMenu}>
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("gamingArena")}>🎮 Gaming Arena</button>
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("winner")}>🏆 Winners</button>
-                </div>
-              )}
-            </div>
-
-            <button className={page === "luckyDraw" ? "active" : ""} style={navStyles.navBtn} onClick={() => navigateToPage("luckyDraw")}>
-              🎁 {t.luckyDraw}
-            </button>
+            {/* AdSense review safe: Gaming Arena, Winners and Lucky Draw are temporarily hidden. */}
 
             <div style={navStyles.dropdownContainer} onMouseLeave={() => setAboutDropdownOpen(false)}>
               <button
@@ -2265,13 +2266,9 @@ function MainApp() {
 
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 <span>{t.home}</span></button>
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 <span>{t.earn}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 <span>Arcade</span></button>
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("luckyDraw")}>🎁 <span>{t.luckyDraw}</span></button>
-
-            <button style={{ ...navStyles.mobileMenuBtn, ...navStyles.gamingArenaMobileBtn }} onClick={() => navigateToPage("gamingArena")}>🎮 <span>Gaming Arena</span></button>
-
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("winner")}>🏆 <span>Winners</span></button>
+            {/* AdSense review safe: Lucky Draw, Gaming Arena and Winners are temporarily hidden. */}
 
             <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 <span>{t.wallet}</span></button>
 
@@ -2477,25 +2474,11 @@ function MainApp() {
 
                 <div className="card-icon">🎮</div>
 
-                <h3>{t.earnCoinsTitle}</h3>
+                <h3>Arcade Games</h3>
 
-                <p>{t.earnCoinsDesc}</p>
+                <p>Play simple browser games for entertainment while platform features are being reviewed.</p>
 
-                <button className="primary-button" onClick={() => navigateToPage("earn")}>{t.startEarning}</button>
-
-              </div>
-
-
-
-              <div className="action-card">
-
-                <div className="card-icon">🎁</div>
-
-                <h3>{t.luckyDrawTitle}</h3>
-
-                <p>{t.luckyDrawDesc}</p>
-
-                <button className="primary-button" onClick={() => navigateToPage("luckyDraw")}>{t.enterLuckyDraw}</button>
+                <button className="primary-button" onClick={() => navigateToPage("earn")}>Open Arcade</button>
 
               </div>
 
@@ -2503,13 +2486,27 @@ function MainApp() {
 
               <div className="action-card">
 
-                <div className="card-icon">🏆</div>
+                <div className="card-icon">🛡️</div>
 
-                <h3>Recent Winners</h3>
+                <h3>Platform Review Mode</h3>
 
-                <p>Check out our latest lucky draw winners!</p>
+                <p>Some reward and competition features are temporarily paused while the site is under AdSense review.</p>
 
-                <button className="primary-button" onClick={() => navigateToPage("winner")}>View Winners</button>
+                <button className="primary-button" onClick={() => navigateToPage("terms")}>Read Terms</button>
+
+              </div>
+
+
+
+              <div className="action-card">
+
+                <div className="card-icon">📢</div>
+
+                <h3>Updates Coming Soon</h3>
+
+                <p>New safe features will be added after the review process is completed.</p>
+
+                <button className="primary-button" onClick={() => navigateToPage("privacy")}>Privacy Policy</button>
 
               </div>
 
@@ -2553,49 +2550,7 @@ function MainApp() {
 
 
 
-      {page === "luckyDraw" && (
-
-        <LuckyDraw
-
-          coins={coins}
-
-          deductCoins={deductCoins}
-
-          submitPaymentProof={submitPaymentProof}
-
-          user={user}
-
-          navigate={navigateToPage}
-
-          currency={currency}
-
-        />
-
-      )}
-
-
-
-      {page === "gamingArena" && (
-
-        <SamatkarGamingArena
-
-          coins={coins}
-
-          user={user}
-
-          addCoins={addCoins}
-
-          deductCoins={deductCoins}
-
-          navigate={navigateToPage}
-
-        />
-
-      )}
-
-
-
-      {page === "winner" && <Winner />}
+      {/* AdSense review safe: Lucky Draw, Gaming Arena and Winners pages are temporarily disabled. */}
 
       {page === "adminDeposits" && user?.role === "admin" && (
         <AdminDeposits
@@ -3070,47 +3025,7 @@ function MainApp() {
 
 
 
-      {/* ==================== ADVERTISEMENT SECTION ==================== */}
-      <div>
-        <Banner320 />
-      </div>
-
-      <div>
-        <NativeBanner />
-      </div>
-
-      <div>
-        <div style={{ width: "100%", background: "#0f172a", padding: "10px 0" }}>
-          <p style={{ textAlign: "center", fontSize: "10px", color: "#64748b", margin: "0 0 5px 0" }}>
-            Sponsored Ad
-          </p>
-          <Bannerad />
-        </div>
-      </div>
-
-      <div>
-        <div style={{ textAlign: "center", margin: "20px 0" }}>
-          <a
-            href="https://www.profitableratecpmnetwork.com/swuv1uz8?key=5fec83873e63f363d7048230b2d1b7ef"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              background: "#22c55e",
-              color: "#fff",
-              padding: "12px 24px",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontWeight: "bold",
-              fontSize: "15px",
-              display: "inline-block",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-            }}
-          >
-            🎁 Bonus Reward Claim Karein (Smartlink)
-          </a>
-        </div>
-      </div>
-      {/* ================== END ADVERTISEMENT SECTION ================== */}
+      {/* AdSense review safe: third-party ads, smartlinks and bonus reward links are temporarily disabled. */}
       <footer>
 
         <div className="footer-brand"><strong>SAMATKAAR</strong></div>

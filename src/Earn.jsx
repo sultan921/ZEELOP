@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 
 
 
-console.log("🔥 PROFESSIONAL ARCADE LOADED WITH STRICT AD VERIFICATION");
+console.log("🎮 SAMATKAAR ARCADE LOADED - ADSENSE REVIEW SAFE MODE");
 
 
 
@@ -30,7 +30,7 @@ function Earn({ addCoins }) {
 
 
 
-  // ---------------- STATE FOR ADS & GAME WIN COUNTER ----------------
+  // ---------------- STATE FOR GAME WIN COUNTER ----------------
 
 
 
@@ -38,7 +38,7 @@ function Earn({ addCoins }) {
 
 
 
-  const [showAdModal, setShowAdModal] = useState(false);
+  const [showAdModal, setShowAdModal] = useState(false); // Disabled during AdSense review
 
 
 
@@ -74,11 +74,11 @@ function Earn({ addCoins }) {
 
 
 
-  // Adsterra Smartlink configured
+  // AdSense review mode: third-party/rewarded ads disabled
 
 
 
-  const ADSTERRA_SMARTLINK = "https://gentlemenwaspishunits.com/kfp83j58br?key=d2ed9999cecef48771504641de44dcd4";
+  const ADSENSE_REVIEW_SAFE_MODE = true;
 
 
 
@@ -158,7 +158,8 @@ function Earn({ addCoins }) {
 
 
 
-        triggerAdFlow();
+        // Rewarded/sponsor ads are disabled during AdSense review.
+        // triggerAdFlow();
 
 
 
@@ -182,62 +183,15 @@ function Earn({ addCoins }) {
 
 
 
-  // Function to Trigger Ad Flow with Smartlink
+  // Sponsor/ad flow disabled while AdSense review is pending
 
 
 
   const triggerAdFlow = () => {
-
-
-
     setShowAdModal(true);
-
-
-
-    setAdStatus("loading");
-
-
-
-    setAdMessage("Sponsor ad load kiya ja raha hai...");
-
-
-
-
-
-
-
-    // Open Smartlink in new tab for user engagement
-
-
-
-    window.open(ADSTERRA_SMARTLINK, "_blank");
-
-
-
-
-
-
-
-    setTimeout(() => {
-
-
-
-      setAdStatus("playing");
-
-
-
-      setAdTimer(5);
-
-
-
-      setAdMessage("Ad verification chal rahi hai, baraye meherbani intezaar karein...");
-
-
-
-    }, 1500);
-
-
-
+    setAdStatus("completed");
+    setAdTimer(0);
+    setAdMessage("Gameplay break complete. Continue playing.");
   };
 
 
@@ -286,7 +240,7 @@ function Earn({ addCoins }) {
 
 
 
-      toast.success("Ad verification successful! Claim your reward.");
+      toast.success("Gameplay break successful! Claim your reward.");
 
 
 
@@ -306,7 +260,7 @@ function Earn({ addCoins }) {
 
 
 
-  // Handle Reward Claiming after Ad Completion
+  // Continue after break - no ad reward during AdSense review
 
 
 
@@ -318,7 +272,7 @@ function Earn({ addCoins }) {
 
 
 
-      if (addCoins) addCoins(15);
+      // No coins are given for ads during AdSense review.
 
 
 
@@ -330,7 +284,7 @@ function Earn({ addCoins }) {
 
 
 
-      toast.success("+15 Coins added successfully! 🪙");
+      toast.success("Continue playing! 🎮");
 
 
 
@@ -1518,7 +1472,7 @@ function Earn({ addCoins }) {
 
 
 
-            <h2 className="text-xl font-bold text-sky-400 mb-2">Sponsored Ad Verification</h2>
+            <h2 className="text-xl font-bold text-sky-400 mb-2">Gameplay Break</h2>
 
 
 
@@ -1538,7 +1492,7 @@ function Earn({ addCoins }) {
 
 
 
-                Verifying Ad... ({adTimer}s)
+                Please wait... ({adTimer}s)
 
 
 
@@ -1574,7 +1528,7 @@ function Earn({ addCoins }) {
 
 
 
-                Claim +15 Coins & Continue ▶
+                Continue ▶
 
 
 
@@ -1602,7 +1556,7 @@ function Earn({ addCoins }) {
 
 
 
-                {adStatus === "loading" ? "Opening Sponsor..." : `Please Wait (${adTimer}s)`}
+                {adStatus === "loading" ? "Preparing..." : `Please Wait (${adTimer}s)`}
 
 
 
