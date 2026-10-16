@@ -39,7 +39,7 @@ import { io } from "socket.io-client";
 
 
 
-// 🌐 LIVE BACKEND URL CONFIGURED
+// ðŸŒ LIVE BACKEND URL CONFIGURED
 
 const BACKEND_URL = "https://my-react-backend-production-84e7.up.railway.app";
 
@@ -49,16 +49,16 @@ const USER_TOKEN_KEY = "samatkaarUserSession";
 
 
 const NOTIFICATION_ICONS = {
-  friend_request: "👤",
-  friend_response: "🤝",
-  challenge: "🎮",
-  challenge_accepted: "⚔️",
-  challenge_rejected: "❌",
-  deposit_approved: "💰",
-  deposit_rejected: "⚠️",
-  admin_message: "📢",
-  message: "💬",
-  system: "🔔"
+  friend_request: "ðŸ‘¤",
+  friend_response: "ðŸ¤",
+  challenge: "ðŸŽ®",
+  challenge_accepted: "âš”ï¸",
+  challenge_rejected: "âŒ",
+  deposit_approved: "ðŸ’°",
+  deposit_rejected: "âš ï¸",
+  admin_message: "ðŸ“¢",
+  message: "ðŸ’¬",
+  system: "ðŸ””"
 };
 
 function formatNotificationTime(value) {
@@ -386,7 +386,7 @@ function NotificationCenter({
 
       triggerNotification(
         action === "accept"
-          ? "✅ Friend request accepted."
+          ? "âœ… Friend request accepted."
           : "Friend request rejected.",
         action === "accept"
           ? "success"
@@ -394,7 +394,7 @@ function NotificationCenter({
       );
     } catch (err) {
       triggerNotification(
-        `⚠️ ${err.message}`,
+        `âš ï¸ ${err.message}`,
         "error"
       );
     }
@@ -418,7 +418,7 @@ function NotificationCenter({
 
     markRead(notification.id);
     setOpen(false);
-    triggerNotification("🎮 Gaming Arena is temporarily paused during AdSense review.", "info");
+    triggerNotification("ðŸŽ® Gaming Arena is temporarily paused during AdSense review.", "info");
     navigateToPage("home");
   };
 
@@ -432,7 +432,7 @@ function NotificationCenter({
       !adminForm.message.trim()
     ) {
       triggerNotification(
-        "⚠️ Title aur message required hain.",
+        "âš ï¸ Title aur message required hain.",
         "error"
       );
       return;
@@ -443,7 +443,7 @@ function NotificationCenter({
       !adminForm.phone.trim()
     ) {
       triggerNotification(
-        "⚠️ User ka phone number likhein.",
+        "âš ï¸ User ka phone number likhein.",
         "error"
       );
       return;
@@ -479,7 +479,7 @@ function NotificationCenter({
       }
 
       triggerNotification(
-        `📢 Notification ${
+        `ðŸ“¢ Notification ${
           data.sentCount || 0
         } user(s) ko send ho gaya.`,
         "success"
@@ -495,7 +495,7 @@ function NotificationCenter({
       setAdminComposerOpen(false);
     } catch (err) {
       triggerNotification(
-        `⚠️ ${err.message}`,
+        `âš ï¸ ${err.message}`,
         "error"
       );
     } finally {
@@ -521,7 +521,7 @@ function NotificationCenter({
         title="Notifications"
       >
         <span className="notification-fab-icon">
-          💬
+          ðŸ’¬
         </span>
 
         {unreadCount > 0 && (
@@ -546,7 +546,7 @@ function NotificationCenter({
           <span className="notification-live-icon">
             {NOTIFICATION_ICONS[
               liveNotice.type
-            ] || "🔔"}
+            ] || "ðŸ””"}
           </span>
 
           <span className="notification-live-copy">
@@ -587,7 +587,7 @@ function NotificationCenter({
                 className="notification-close-btn"
                 onClick={() => setOpen(false)}
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -598,7 +598,7 @@ function NotificationCenter({
                   loadNotifications()
                 }
               >
-                ↻ Refresh
+                â†» Refresh
               </button>
 
               <button
@@ -606,7 +606,7 @@ function NotificationCenter({
                 onClick={markAllRead}
                 disabled={unreadCount === 0}
               >
-                ✓ Read all
+                âœ“ Read all
               </button>
 
               {user?.role === "admin" && (
@@ -619,7 +619,7 @@ function NotificationCenter({
                     )
                   }
                 >
-                  📢 Send Notice
+                  ðŸ“¢ Send Notice
                 </button>
               )}
             </div>
@@ -755,10 +755,10 @@ function NotificationCenter({
                     }
                   >
                     <option value="important">
-                      🔴 Important
+                      ðŸ”´ Important
                     </option>
                     <option value="normal">
-                      🔵 Normal
+                      ðŸ”µ Normal
                     </option>
                   </select>
 
@@ -778,7 +778,7 @@ function NotificationCenter({
               {loading &&
               notifications.length === 0 ? (
                 <div className="notification-empty">
-                  <span>⏳</span>
+                  <span>â³</span>
                   <strong>
                     Loading notifications...
                   </strong>
@@ -786,7 +786,7 @@ function NotificationCenter({
               ) : notifications.length ===
                 0 ? (
                 <div className="notification-empty">
-                  <span>🔕</span>
+                  <span>ðŸ”•</span>
                   <strong>
                     No notifications yet
                   </strong>
@@ -830,7 +830,7 @@ function NotificationCenter({
                         <div className="notification-card-icon">
                           {NOTIFICATION_ICONS[
                             notification.type
-                          ] || "🔔"}
+                          ] || "ðŸ””"}
                         </div>
 
                         <div className="notification-card-body">
@@ -861,7 +861,7 @@ function NotificationCenter({
 
                             {notification.senderName && (
                               <span>
-                                •{" "}
+                                â€¢{" "}
                                 {
                                   notification.senderName
                                 }
@@ -884,7 +884,7 @@ function NotificationCenter({
                                   );
                                 }}
                               >
-                                ✓ Accept
+                                âœ“ Accept
                               </button>
 
                               <button
@@ -900,7 +900,7 @@ function NotificationCenter({
                                   );
                                 }}
                               >
-                                ✕ Reject
+                                âœ• Reject
                               </button>
                             </div>
                           )}
@@ -922,7 +922,7 @@ function NotificationCenter({
                                     );
                                   }}
                                 >
-                                  🎮 Open Gaming
+                                  ðŸŽ® Open Gaming
                                   Arena
                                 </button>
                               </div>
@@ -939,8 +939,8 @@ function NotificationCenter({
                             >
                               {notification.actionStatus ===
                               "accepted"
-                                ? "✓ Accepted"
-                                : "✕ Rejected"}
+                                ? "âœ“ Accepted"
+                                : "âœ• Rejected"}
                             </div>
                           )}
                         </div>
@@ -956,7 +956,7 @@ function NotificationCenter({
                           }}
                           title="Delete"
                         >
-                          ×
+                          Ã—
                         </button>
                       </article>
                     );
@@ -1580,7 +1580,7 @@ function MainApp() {
 
 
 
-  // 📱 Responsive navbar: mobile / tablet / desktop
+  // ðŸ“± Responsive navbar: mobile / tablet / desktop
 
   useEffect(() => {
 
@@ -1602,7 +1602,7 @@ function MainApp() {
 
 
 
-  // 🔒 Authenticated and ordered coin persistence.
+  // ðŸ”’ Authenticated and ordered coin persistence.
   // Earlier frontend called /api/user/update-coins but the backend did not
   // actually provide that route, so MongoDB kept the signup balance (50).
   const updateUserCoinsInDatabase = (newCoins) => {
@@ -1691,7 +1691,7 @@ function MainApp() {
 
 
 
-  // 🔗 BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
+  // ðŸ”— BACKEND LINKED: Permanent Sign Up Handler via Live Railway Backend API
 
   const handleRegisterSubmit = async (e) => {
 
@@ -1705,7 +1705,7 @@ function MainApp() {
 
     if (!inputName.trim() || !inputPhone.trim() || !inputPassword.trim()) {
 
-      setAuthError("⚠️ Meherbani karke saari fields bharein!");
+      setAuthError("âš ï¸ Meherbani karke saari fields bharein!");
 
       return;
 
@@ -1743,7 +1743,7 @@ function MainApp() {
 
       if (!response.ok) {
 
-        setAuthError(`⚠️ ${data.error || "Registration failed!"}`);
+        setAuthError(`âš ï¸ ${data.error || "Registration failed!"}`);
 
         return;
 
@@ -1766,7 +1766,7 @@ function MainApp() {
 
 
 
-      setAuthSuccess("✅ Account permanently database me register ho gaya!");
+      setAuthSuccess("âœ… Account permanently database me register ho gaya!");
 
       setTimeout(() => {
 
@@ -1786,7 +1786,7 @@ function MainApp() {
 
     } catch (err) {
 
-      setAuthError("❌ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
+      setAuthError("âŒ Backend server se connection nahi ho saka! Check karein server chal raha hai ya nahi.");
 
     } finally {
 
@@ -1798,7 +1798,7 @@ function MainApp() {
 
 
 
-  // 🔗 BACKEND LINKED: Login Handler via Live Railway Backend API
+  // ðŸ”— BACKEND LINKED: Login Handler via Live Railway Backend API
 
   const handleLoginSubmit = async (e) => {
 
@@ -1812,7 +1812,7 @@ function MainApp() {
 
     if (!inputPhone.trim() || !inputPassword.trim()) {
 
-      setAuthError("⚠️ Phone number aur password dono likhein!");
+      setAuthError("âš ï¸ Phone number aur password dono likhein!");
 
       return;
 
@@ -1848,7 +1848,7 @@ function MainApp() {
 
       if (!response.ok) {
 
-        setAuthError(`❌ ${data.error || "Ghalat Phone Number ya Password!"}`);
+        setAuthError(`âŒ ${data.error || "Ghalat Phone Number ya Password!"}`);
 
         return;
 
@@ -1871,7 +1871,7 @@ function MainApp() {
 
 
 
-      setAuthSuccess("✅ Login Successful from Database!");
+      setAuthSuccess("âœ… Login Successful from Database!");
 
       setTimeout(() => {
 
@@ -1889,7 +1889,7 @@ function MainApp() {
 
     } catch (err) {
 
-      setAuthError("❌ Backend server se connection nahi ho saka!");
+      setAuthError("âŒ Backend server se connection nahi ho saka!");
 
     } finally {
 
@@ -1917,7 +1917,7 @@ function MainApp() {
     localStorage.removeItem("goovoCurrentUser");
     localStorage.removeItem(USER_TOKEN_KEY);
 
-    triggerNotification("👋 Logged out successfully!", "info");
+    triggerNotification("ðŸ‘‹ Logged out successfully!", "info");
     setPage("home");
   };
 
@@ -1927,7 +1927,7 @@ function MainApp() {
 
     setCoins((prev) => prev + amount);
 
-    triggerNotification(customMessage || `🎉 Coins updated: +${amount}`, "success");
+    triggerNotification(customMessage || `ðŸŽ‰ Coins updated: +${amount}`, "success");
 
   };
 
@@ -1937,7 +1937,7 @@ function MainApp() {
 
     if (coins < amount) {
 
-      triggerNotification("⚠️ Insufficient coins balance!", "error");
+      triggerNotification("âš ï¸ Insufficient coins balance!", "error");
 
       return false;
 
@@ -1945,7 +1945,7 @@ function MainApp() {
 
     setCoins((prev) => prev - amount);
 
-    triggerNotification(customMessage || `💸 Coins updated: -${amount}`, "info");
+    triggerNotification(customMessage || `ðŸ’¸ Coins updated: -${amount}`, "info");
 
     return true;
 
@@ -1981,7 +1981,7 @@ function MainApp() {
 
     setPendingPayments((prev) => [newEntry, ...prev]);
 
-    triggerNotification("🚀 Receipt submitted successfully!", "success");
+    triggerNotification("ðŸš€ Receipt submitted successfully!", "success");
 
   };
 
@@ -1999,7 +1999,7 @@ function MainApp() {
 
   const navigateToPage = (newPage) => {
     if (["luckyDraw", "gamingArena", "winner"].includes(newPage)) {
-      triggerNotification("⏳ This feature is temporarily paused during AdSense review.", "info");
+      triggerNotification("â³ This feature is temporarily paused during AdSense review.", "info");
       setPage("home");
       setMenuOpen(false);
       setAboutDropdownOpen(false);
@@ -2009,13 +2009,13 @@ function MainApp() {
     }
 
     if (newPage === "adminDeposits" && user?.role !== "admin") {
-      triggerNotification("⛔ Admin access required.", "error");
+      triggerNotification("â›” Admin access required.", "error");
       return;
     }
 
     if (!user && (newPage === "earn" || newPage === "wallet")) {
 
-      triggerNotification("🔒 Feature access ke liye pehle Login / Signup karein!", "error");
+      triggerNotification("ðŸ”’ Feature access ke liye pehle Login / Signup karein!", "error");
 
       setShowAuthModal(true);
 
@@ -2070,7 +2070,7 @@ function MainApp() {
 
               <div className="compact-pill" style={navStyles.compactPill}>
 
-                <span style={navStyles.pillIcon}>🌐</span>
+                <span style={navStyles.pillIcon}>ðŸŒ</span>
 
                 <select
 
@@ -2100,7 +2100,7 @@ function MainApp() {
 
               <div className="compact-pill" style={navStyles.compactPill}>
 
-                <span style={navStyles.pillIcon}>💱</span>
+                <span style={navStyles.pillIcon}>ðŸ’±</span>
 
                 <select
 
@@ -2152,22 +2152,22 @@ function MainApp() {
                 style={{ ...navStyles.navBtn, display: "flex", alignItems: "center", gap: "4px" }}
                 onClick={() => { setAboutDropdownOpen(!aboutDropdownOpen); setPlayDropdownOpen(false); setUserDropdownOpen(false); }}
               >
-                More ▾
+                More â–¾
               </button>
               {aboutDropdownOpen && (
                 <div style={navStyles.dropdownMenu}>
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("wallet")}>ðŸ’° {t.wallet}</button>
                     {user?.role === "admin" && (
                       <button
                         style={{ ...navStyles.dropdownItem, color: "#7dd3fc", fontWeight: "800" }}
                         onClick={() => navigateToPage("adminDeposits")}
                       >
-                        🛡️ Admin Deposits
+                        ðŸ›¡ï¸ Admin Deposits
                       </button>
                     )}
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
-                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("privacy")}>ðŸ›¡ï¸ Privacy Policy</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("terms")}>ðŸ“„ Terms & Conditions</button>
+                  <button style={navStyles.dropdownItem} onClick={() => navigateToPage("refund")}>ðŸ”„ Refund Policy</button>
                 </div>
               )}
             </div>
@@ -2191,13 +2191,13 @@ function MainApp() {
                     )}
                   </span>
                   <span style={navStyles.profileNavName}>{user.name}</span>
-                  <span style={navStyles.profileChevron}>▾</span>
+                  <span style={navStyles.profileChevron}>â–¾</span>
                 </button>
                 {userDropdownOpen && (
                   <div style={{ ...navStyles.dropdownMenu, minWidth: "180px" }}>
-                    <button style={navStyles.dropdownItem} onClick={() => navigateToPage("profile")}>👤 {t.profile}</button>
-                    <button style={navStyles.dropdownItem} onClick={() => navigateToPage("wallet")}>💰 {t.wallet}</button>
-                    <button style={{ ...navStyles.dropdownItem, color: "#fca5a5" }} onClick={handleLogout}>🚪 Logout</button>
+                    <button style={navStyles.dropdownItem} onClick={() => navigateToPage("profile")}>ðŸ‘¤ {t.profile}</button>
+                    <button style={navStyles.dropdownItem} onClick={() => navigateToPage("wallet")}>ðŸ’° {t.wallet}</button>
+                    <button style={{ ...navStyles.dropdownItem, color: "#fca5a5" }} onClick={handleLogout}>ðŸšª Logout</button>
                   </div>
                 )}
               </div>
@@ -2221,7 +2221,7 @@ function MainApp() {
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
           >
-            <span style={navStyles.menuIcon}>{menuOpen ? "✕" : "☰"}</span>
+            <span style={navStyles.menuIcon}>{menuOpen ? "âœ•" : "â˜°"}</span>
           </button>
         )}
       </nav>
@@ -2254,7 +2254,7 @@ function MainApp() {
 
             >
 
-              ✕
+              âœ•
 
             </button>
 
@@ -2264,21 +2264,21 @@ function MainApp() {
 
           <div style={navStyles.mobileMenuGrid}>
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>🏠 <span>{t.home}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("home")}>ðŸ  <span>{t.home}</span></button>
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>🎮 <span>Arcade</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("earn")}>ðŸŽ® <span>Arcade</span></button>
 
             {/* AdSense review safe: Lucky Draw, Gaming Arena and Winners are temporarily hidden. */}
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>💰 <span>{t.wallet}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("wallet")}>ðŸ’° <span>{t.wallet}</span></button>
 
-            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>👤 <span>{t.profile}</span></button>
+            <button style={navStyles.mobileMenuBtn} onClick={() => navigateToPage("profile")}>ðŸ‘¤ <span>{t.profile}</span></button>
             {user?.role === "admin" && (
               <button
                 style={{ ...navStyles.mobileMenuBtn, borderColor: "rgba(56,189,248,0.35)", color: "#7dd3fc" }}
                 onClick={() => navigateToPage("adminDeposits")}
               >
-                🛡️ <span>Admin Deposits</span>
+                ðŸ›¡ï¸ <span>Admin Deposits</span>
               </button>
             )}
 
@@ -2290,15 +2290,15 @@ function MainApp() {
 
           <div style={{ background: "rgba(255,255,255,0.03)", padding: "8px", borderRadius: "6px" }}>
 
-            <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: "bold" }}>📁 About Us & Policies</div>
+            <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: "bold" }}>ðŸ“ About Us & Policies</div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
 
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("privacy")}>🛡️ Privacy Policy</button>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("privacy")}>ðŸ›¡ï¸ Privacy Policy</button>
 
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("terms")}>📄 Terms & Conditions</button>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("terms")}>ðŸ“„ Terms & Conditions</button>
 
-              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("refund")}>🔄 Refund Policy</button>
+              <button style={navStyles.mobileMenuBtnFull} onClick={() => navigateToPage("refund")}>ðŸ”„ Refund Policy</button>
 
             </div>
 
@@ -2310,7 +2310,7 @@ function MainApp() {
 
             <div style={navStyles.mobileSettingItem}>
 
-              <span>🌐 Language</span>
+              <span>ðŸŒ Language</span>
 
               <select
 
@@ -2336,7 +2336,7 @@ function MainApp() {
 
             <div style={navStyles.mobileSettingItem}>
 
-              <span>💱 Currency</span>
+              <span>ðŸ’± Currency</span>
 
               <select
 
@@ -2368,7 +2368,7 @@ function MainApp() {
 
             <button onClick={handleLogout} style={navStyles.mobileLogoutBtn}>
 
-              🚪 Logout <span>({user.name})</span>
+              ðŸšª Logout <span>({user.name})</span>
 
             </button>
 
@@ -2390,7 +2390,7 @@ function MainApp() {
 
             >
 
-              🔑 Login / Signup
+              ðŸ”‘ Login / Signup
 
             </button>
 
@@ -2452,13 +2452,13 @@ function MainApp() {
 
                 <p className="card-label">{t.yourBalance}</p>
 
-                <h2>🪙 {coins.toLocaleString()} Coins</h2>
+                <h2>ðŸª™ {coins.toLocaleString()} Coins</h2>
 
-                <p className="usd">≈ {activeCurrency.symbol}{convertCoins(coins)} {currency}</p>
+                <p className="usd">â‰ˆ {activeCurrency.symbol}{convertCoins(coins)} {currency}</p>
 
               </div>
 
-              <div className="coin-icon">🪙</div>
+              <div className="coin-icon">ðŸª™</div>
 
             </div>
 
@@ -2472,7 +2472,7 @@ function MainApp() {
 
               <div className="action-card">
 
-                <div className="card-icon">🎮</div>
+                <div className="card-icon">ðŸŽ®</div>
 
                 <h3>Arcade Games</h3>
 
@@ -2486,7 +2486,7 @@ function MainApp() {
 
               <div className="action-card">
 
-                <div className="card-icon">🛡️</div>
+                <div className="card-icon">ðŸ›¡ï¸</div>
 
                 <h3>Platform Review Mode</h3>
 
@@ -2500,7 +2500,7 @@ function MainApp() {
 
               <div className="action-card">
 
-                <div className="card-icon">📢</div>
+                <div className="card-icon">ðŸ“¢</div>
 
                 <h3>Updates Coming Soon</h3>
 
@@ -2516,7 +2516,7 @@ function MainApp() {
 
 
 
-          {/* 🎁 INVITE BONUS SECTION */}
+          {/* ðŸŽ INVITE BONUS SECTION */}
 
           <section
 
@@ -2683,11 +2683,11 @@ function MainApp() {
 
               <div style={navStyles.authFeatureList}>
 
-                <div style={navStyles.authFeatureItem}>✓ Secure Account Access</div>
+                <div style={navStyles.authFeatureItem}>âœ“ Secure Account Access</div>
 
-                <div style={navStyles.authFeatureItem}>✓ Fast & Simple Experience</div>
+                <div style={navStyles.authFeatureItem}>âœ“ Fast & Simple Experience</div>
 
-                <div style={navStyles.authFeatureItem}>✓ Your Coins Stay Synced</div>
+                <div style={navStyles.authFeatureItem}>âœ“ Your Coins Stay Synced</div>
 
               </div>
 
@@ -2723,7 +2723,7 @@ function MainApp() {
 
                   <div style={navStyles.authBadge}>
 
-                    {isLoginMode ? "🔐 SECURE LOGIN" : "✨ CREATE ACCOUNT"}
+                    {isLoginMode ? "ðŸ” SECURE LOGIN" : "âœ¨ CREATE ACCOUNT"}
 
                   </div>
 
@@ -2765,7 +2765,7 @@ function MainApp() {
 
                 >
 
-                  ✕
+                  âœ•
 
                 </button>
 
@@ -2783,7 +2783,7 @@ function MainApp() {
 
                     <div style={navStyles.authInputWrap}>
 
-                      <span style={navStyles.authInputIcon}>👤</span>
+                      <span style={navStyles.authInputIcon}>ðŸ‘¤</span>
 
                       <input
 
@@ -2817,7 +2817,7 @@ function MainApp() {
 
                   <div style={navStyles.authInputWrap}>
 
-                    <span style={navStyles.authInputIcon}>📱</span>
+                    <span style={navStyles.authInputIcon}>ðŸ“±</span>
 
                     <input
 
@@ -2849,7 +2849,7 @@ function MainApp() {
 
                   <div style={navStyles.authInputWrap}>
 
-                    <span style={navStyles.authInputIcon}>🔒</span>
+                    <span style={navStyles.authInputIcon}>ðŸ”’</span>
 
                     <input
 
@@ -2883,7 +2883,7 @@ function MainApp() {
 
                     >
 
-                      {showPassword ? "👁️‍🗨️" : "👁️"}
+                      {showPassword ? "ðŸ‘ï¸â€ðŸ—¨ï¸" : "ðŸ‘ï¸"}
 
                     </button>
 
@@ -2897,9 +2897,9 @@ function MainApp() {
 
                   <div style={navStyles.authErrorBox}>
 
-                    <span>⚠️</span>
+                    <span>âš ï¸</span>
 
-                    <span>{authError.replace(/^⚠️\s*/, "").replace(/^❌\s*/, "")}</span>
+                    <span>{authError.replace(/^âš ï¸\s*/, "").replace(/^âŒ\s*/, "")}</span>
 
                   </div>
 
@@ -2911,9 +2911,9 @@ function MainApp() {
 
                   <div style={navStyles.authSuccessBox}>
 
-                    <span>✓</span>
+                    <span>âœ“</span>
 
-                    <span>{authSuccess.replace(/^✅\s*/, "")}</span>
+                    <span>{authSuccess.replace(/^âœ…\s*/, "")}</span>
 
                   </div>
 
@@ -2953,7 +2953,7 @@ function MainApp() {
 
                       <span>{isLoginMode ? "Login" : "Create Account"}</span>
 
-                      <span style={navStyles.authSubmitArrow}>→</span>
+                      <span style={navStyles.authSubmitArrow}>â†’</span>
 
                     </>
 
@@ -3007,7 +3007,7 @@ function MainApp() {
 
               <div style={navStyles.authSecurityNote}>
 
-                <span>🛡️</span>
+                <span>ðŸ›¡ï¸</span>
 
                 <span>Your account details are sent securely to SAMATKAAR.</span>
 
@@ -3032,7 +3032,7 @@ function MainApp() {
 
         <p>{t.footerSub}</p>
 
-        <small>© 2026 SAMATKAAR. Official App Version</small>
+        <small>Â© 2026 SAMATKAAR. Official App Version</small>
 
       </footer>
 
@@ -4484,7 +4484,7 @@ export default function App() {
 
   useEffect(() => {
 
-    // ✨ Professional app startup screen
+    // âœ¨ Professional app startup screen
 
     const timer = setTimeout(() => {
 
@@ -4598,7 +4598,7 @@ export default function App() {
 
               YOUR EXPERIENCE IS LOADING
 
-              <span style={appLoaderStyles.dots}>•••</span>
+              <span style={appLoaderStyles.dots}>â€¢â€¢â€¢</span>
 
             </div>
 
@@ -4626,7 +4626,7 @@ export default function App() {
 
           <div style={appLoaderStyles.footerText}>
 
-            Secure • Fast • Simple
+            Secure â€¢ Fast â€¢ Simple
 
           </div>
 
@@ -4661,7 +4661,7 @@ export default function App() {
 
 
 
-// ✨ PROFESSIONAL SAMATKAAR APP LOADER STYLES
+// âœ¨ PROFESSIONAL SAMATKAAR APP LOADER STYLES
 
 const appLoaderStyles = {
 
